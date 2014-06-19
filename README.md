@@ -1,8 +1,7 @@
-A Node.js frontend to the libsbigudrv driver library, for the SBIG astronomical cameras.
+A Node.js frontend to the SBIG astronomical cameras.
 ============
 
 This C++/javascript library is in early developement phase. 
-
 
 ### To build:
 
@@ -15,10 +14,10 @@ On Debian-like systems,
     #apt-get install node node-gyp g++ libpng-dev libcfitsio3-dev
 
 
-The `libsbigudrv.so` SBIG proprietary driver and the camera firmware must be correctly installed on your system and the camera clearly identified (`lsusb` to check). 
+The `libsbigudrv.so` SBIG proprietary library driver and the camera firmware must be correctly installed on your system and the camera clearly identified (`lsusb` to check). 
 
    
-You will need the `node-fits` plugin source code on the same directory as this module for the compilation to succeed. In the node-sbig directory, the following commands should build the module:
+You will need the `node-fits` plugin source code on the same directory as this module for the compilation to succeed. In the node-sbig directory, the following commands should then build the module:
 
 
     $node-gyp configure
@@ -31,9 +30,6 @@ The test.js file, in the node-sbig/test directory
 
     $node test.js
     
-### API insight
-
-Documentation still need to be written for the various functions the node-fits module provides. In the mean time, the following example can give an idea on how to use it.
 
 
 ```
