@@ -1,0 +1,5 @@
+build
+test/build
+test/fits_images
+test/test*.fits
+*~
