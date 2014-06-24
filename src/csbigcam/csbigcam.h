@@ -70,6 +70,12 @@ class CSBIGCam {
   CSBIGCam(OpenDeviceParams odp);
   CSBIGCam(SBIG_DEVICE_TYPE dev);
   ~CSBIGCam();
+
+
+  virtual void grab_complete(double){}
+  virtual void expo_complete(double){}
+
+
   void Init();
   
   // Error Reporting Routines

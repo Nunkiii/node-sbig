@@ -19,8 +19,26 @@ namespace sadira{
   using namespace std;  
   using namespace qk;
 
+  void sbig_cam::expo_complete(double pc){
+    sb->new_event.lock();
+    sb->event_id=14;
+    sb->complete=pc;
+    sb->new_event.broadcast();
+    sb->new_event.unlock();
+  }
 
 
+  void sbig_cam::grab_complete(double pc){
+    sb->new_event.lock();
+    sb->event_id=15;
+    sb->complete=pc;
+    sb->new_event.broadcast();
+    sb->new_event.unlock();
+  }
+
+  
+  
+  
   sbig::sbig():
     pcam(0),
     expt(this),
@@ -63,6 +81,71 @@ namespace sadira{
   Persistent<FunctionTemplate> sbig::s_cts;
 
 
+  Handle<Value> sbig::set_temp_func(const Arguments& args) {
+
+    HandleScope scope;
+    if (args.Length() != 2) {
+      return ThrowException(Exception::Error(String::New("Need setpoint info! 2 pars: (enabled, setpoint)")));
+    }
+
+    sbig* obj = ObjectWrap::Unwrap<sbig>(args.This());
+    sbig_cam* cam=obj->pcam;
+    
+    if(!cam)
+      return ThrowException(Exception::Error(String::New("Camera not connected!")));
+
+    short unsigned int cooling_enabled=args[0]->ToNumber()->Value();
+    double setpoint=args[1]->ToNumber()->Value();
+    PAR_ERROR res = CE_NO_ERROR;
+
+    if ( (res = cam->SetTemperatureRegulation(cooling_enabled, setpoint) ) != CE_NO_ERROR ){
+      return ThrowException(Exception::Error(String::New("Error setting CCD cooling!")));
+    }
+
+    Handle<Object> hthis(args.This());
+    return scope.Close(hthis);
+  }
+
+
+  Handle<Value> sbig::get_temp_func(const Arguments& args) {
+
+    HandleScope scope;
+    sbig* obj = ObjectWrap::Unwrap<sbig>(args.This());
+    
+    sbig_cam* cam=obj->pcam;
+    
+    if(!cam)
+      return ThrowException(Exception::Error(String::New("Camera not connected!")));
+
+    v8::Handle<v8::Object> result = v8::Object::New();
+
+    PAR_ERROR res = CE_NO_ERROR;
+    double d,setpoint,cooling_power;
+    // CCD Temperature
+    short unsigned int cooling_enabled;
+    
+
+    if ( (res = cam->QueryTemperatureStatus(cooling_enabled, d, setpoint, cooling_power)) != CE_NO_ERROR ){
+      return ThrowException(Exception::Error(String::New("Error getting CCD temperature!")));
+    }
+
+    result->Set(String::New("cooling"),v8::Number::New(cooling_enabled));
+    result->Set(String::New("cooling_setpoint"),v8::Number::New(setpoint));
+    result->Set(String::New("cooling_power"),v8::Number::New(cooling_power));
+    result->Set(String::New("ccd_temp"),v8::Number::New(d));
+
+    QueryTemperatureStatusResults qtsr;
+    
+    // Ambient Temperature
+    if ( (res = cam->SBIGUnivDrvCommand(CC_QUERY_TEMPERATURE_STATUS, NULL, &qtsr)) != CE_NO_ERROR ){
+      return ThrowException(Exception::Error(String::New("Error getting Ambient temperature!")));
+    }
+
+    d=cam->ADToDegreesC(qtsr.ambientThermistor, FALSE);
+    result->Set(String::New("ambient_temp"),v8::Number::New(d));
+
+    return scope.Close(result);    
+  }
 
   void sbig::init(Handle<Object> exports) {
     // Prepare constructor template
@@ -82,6 +165,8 @@ namespace sadira{
     s_cts->PrototypeTemplate()->Set(String::NewSymbol("shutdown"),FunctionTemplate::New(shutdown_func)->GetFunction());
     s_cts->PrototypeTemplate()->Set(String::NewSymbol("start_exposure"),FunctionTemplate::New(start_exposure_func)->GetFunction());
     s_cts->PrototypeTemplate()->Set(String::NewSymbol("stop_exposure"),FunctionTemplate::New(stop_exposure_func)->GetFunction());
+    s_cts->PrototypeTemplate()->Set(String::NewSymbol("get_temp"),FunctionTemplate::New(get_temp_func)->GetFunction());
+    s_cts->PrototypeTemplate()->Set(String::NewSymbol("set_temp"),FunctionTemplate::New(set_temp_func)->GetFunction());
 
     //Persistent<Function> constructor = Persistent<Function>::New(tpl->GetFunction());
     //exports->Set(String::NewSymbol("cam"), constructor);
@@ -193,6 +278,16 @@ namespace sadira{
 	
 	if(obj->event_id==13) {
 	  waiting=false;
+	}
+
+	if(obj->event_id==14) {
+	  char nstr[64]; sprintf(nstr,"%g",obj->complete);
+	  obj->send_status_message("expo_complete",nstr);
+	}
+
+	if(obj->event_id==15) {
+	  char nstr[64]; sprintf(nstr,"%g",obj->complete);
+	  obj->send_status_message("grab_complete",nstr);
 	}
 
 	if(obj->event_id==666) {
@@ -366,7 +461,7 @@ namespace sadira{
 
     MINFO << "Connecting to camera ..." << endl;
 
-    pcam = new CSBIGCam(DEV_USB1);
+    pcam = new sbig_cam(this, DEV_USB1);
     
     check_error();
   
@@ -496,8 +591,6 @@ namespace sadira{
     check_error();
     
     CSBIGImg *pImg= 0;    
-    
-
     pImg = new CSBIGImg;
 
     MINFO << "Accumulating photons .... exptime="<<exptime << endl;

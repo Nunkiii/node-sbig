@@ -769,6 +769,7 @@ PAR_ERROR CSBIGCam::GrabMain(CSBIGImg *pImg, SBIG_DARK_FRAME dark)
 	do {	
 	  m_dGrabPercent = (double)(time(NULL) - curTime)/m_dExposureTime;
 	  //cout << "Percent complete : "<< m_dGrabPercent*100 << "\t%\r";
+	  expo_complete(m_dGrabPercent*100.0);
 	  usleep(m_dExposureTime*1E6/100);
 	} while ((err = IsExposureComplete(expComp)) == CE_NO_ERROR && !expComp );
 	
@@ -795,6 +796,9 @@ PAR_ERROR CSBIGCam::GrabMain(CSBIGImg *pImg, SBIG_DARK_FRAME dark)
 		for (i=0; i<m_sGrabInfo.height && err==CE_NO_ERROR; i++ ) {
 			m_dGrabPercent = (double)(i+1)/m_sGrabInfo.height;
 			err = ReadoutLine(rlp, FALSE, pImg->GetImagePointer() + (long)i * m_sGrabInfo.width);
+			
+			if(! (i%20))
+			  grab_complete(m_dGrabPercent*100.0);
 		}
 	}
 	EndReadout();

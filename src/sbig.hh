@@ -25,6 +25,20 @@ namespace sadira{
   using namespace std;
   using namespace qk;
 
+  class sbig;
+
+  class sbig_cam : public CSBIGCam{
+  public:
+    sbig_cam(sbig* _sbig, SBIG_DEVICE_TYPE dev):CSBIGCam(dev),sb(_sbig){
+
+    }
+    virtual ~sbig_cam(){}
+
+    virtual void grab_complete(double pc);
+    virtual void expo_complete(double pc);
+    sbig* sb;
+  };
+
   class sbig : public colormap_interface {
   public:
     static void init(v8::Handle<v8::Object> exports);
@@ -45,6 +59,8 @@ namespace sadira{
     static v8::Handle<v8::Value> initialize_func(const v8::Arguments& args);
     static v8::Handle<v8::Value> start_exposure_func(const v8::Arguments& args);
     static v8::Handle<v8::Value> stop_exposure_func(const v8::Arguments& args);
+    static v8::Handle<v8::Value> get_temp_func(const v8::Arguments& args);
+    static v8::Handle<v8::Value> set_temp_func(const v8::Arguments& args);
 
     class expo_thread : public thread{
     public:
@@ -57,15 +73,17 @@ namespace sadira{
 
     void close_shutter();
 
-    CSBIGCam *pcam;
+    sbig_cam *pcam;
     string error_message;
     expo_thread expt;
     void* event;
+  public:
     cond new_event;
     int event_id;
-    
+    double complete;
+  private:
     v8::Local<v8::Function> cb;
-
+    
     /*
     REG_BASE_OBJECT sbig();
     virtual ~sbig();
