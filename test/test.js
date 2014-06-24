@@ -1,5 +1,5 @@
-var fits = require('../node-fits/build/Release/fits');
-var sbig = require('./build/Release/sbig');
+var fits = require('../../node-fits/build/Release/fits');
+var sbig = require('../build/Release/sbig');
 
 var cam= new sbig.cam();
 
@@ -12,6 +12,9 @@ cam.initialize(function (init_message){
 	var expo_counter=0;
 
 	cam.exptime=.05;
+	cam.nexpo=1;
+
+	console.log("Cam cooling info = " + JSON.stringify(cam.get_temp()));
 
 	cam.start_exposure(function (expo_message){
 	    
@@ -32,12 +35,29 @@ cam.initialize(function (init_message){
 	    }
 
 	    if(expo_message.done){
-		console.log(expo_message.done + " --> cam shutdown ...");
-		
-		cam.shutdown(function (shut_msg){
-	    	    if(shut_msg.off) console.log(shut_msg.off + " Ciao !");
+
+		//Trying temperature regulation ...
+
+		cam.set_temp(1, -1.0);
+
+		var ns=0;
+		var iv=setInterval(function(){
+		    console.log("NS= "+ ns +" Cam temperature = " + JSON.stringify(cam.get_temp()));
+		    if(ns++>60){
+			
+			clearInterval(iv);
+
+			console.log(expo_message.done + " --> cam shutdown ...");
+			cam.shutdown(function (shut_msg){
+	    		    if(shut_msg.off) console.log(shut_msg.off + " Ciao !");
+			    
+			});
+			
+		    }
 		    
-		});
+		}, 1000);
+		
+
 	    }
 	    
 	    if(expo_message.error){		
@@ -47,7 +67,12 @@ cam.initialize(function (init_message){
 	});
 	
 	console.log("After start exposure...");
-    }
+	
+
+
+
+    }else
+	console.log("Camera init error : " + init_message.error );
 });
 
 
