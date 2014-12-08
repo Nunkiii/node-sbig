@@ -10,6 +10,7 @@
 
 #include <node.h>
 #include <node_buffer.h>
+
 #include <string>
 #include <fitsio.h>
 
@@ -18,12 +19,14 @@
 
 #include "../node-fits/qk/mat.hh"
 #include "../node-fits/qk/threads.hh"
-#include "../node-fits/colormap/colormap_interface.hh"
+//#include "../node-fits/colormap/colormap_interface.hh"
 
 namespace sadira{
   
   using namespace std;
   using namespace qk;
+  using namespace v8;
+  using namespace node;
 
   class sbig;
 
@@ -39,7 +42,7 @@ namespace sadira{
     sbig* sb;
   };
 
-  class sbig : public colormap_interface {
+  class sbig : public ObjectWrap { //public colormap_interface {
   public:
     static void init(v8::Handle<v8::Object> exports);
 

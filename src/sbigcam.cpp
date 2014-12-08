@@ -153,7 +153,7 @@ namespace sadira{
     Local<FunctionTemplate> tpl = FunctionTemplate::New(New);
 
     s_cts = Persistent<FunctionTemplate>::New(tpl);
-    s_cts->Inherit(colormap_interface::s_ct);     
+    //s_cts->Inherit(colormap_interface::s_ct);     
 
 
     s_cts->SetClassName(String::NewSymbol("sbig"));
@@ -971,11 +971,11 @@ namespace sadira{
   //Persistent<FunctionTemplate> jsmat<unsigned short>::s_ctm;
 
   void init_node_module(Handle<Object> exports) {
-    cout << "Init colormap i" << endl;
-    colormap_interface::init(exports);
-    cout << "Init sbig" << endl;
+
+    //colormap_interface::init(exports);
+    cout << "Init sbig c++ plugin..." << endl;
     sbig::init(exports);
-    cout << "Init done "<<endl;
+    cout << "Init sbig done "<<endl;
     jsmat<unsigned short>::init(exports,"mat_ushort");
     jsmat<float>::init(exports,"mat_float");
 
