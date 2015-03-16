@@ -174,11 +174,26 @@ namespace sadira{
 
   }
   
+  void send_status(v8::Local<v8::Function>& cb, const string& type, const string& message, const string& id=""){
+    const unsigned argc = 1;
+
+    v8::Handle<v8::Object> msg = v8::Object::New();
+    msg->Set(String::New("type"),String::New(type.c_str()));
+    msg->Set(String::New("content"),String::New(message.c_str()));  
+    if(id!="")
+      msg->Set(String::New("id"),String::New(id.c_str()));  
+    v8::Handle<v8::Value> msgv(msg);
+    Handle<Value> argv[argc] = { msgv };
+    cb->Call(Context::GetCurrent()->Global(), argc, argv );    
+  }
+
+  
   void sbig::send_status_message(const string& type, const string& message){
     const unsigned argc = 1;
 
     v8::Handle<v8::Object> msg = v8::Object::New();
-    msg->Set(String::New(type.c_str()),String::New(message.c_str()));  
+    msg->Set(String::New("type"),String::New(type.c_str()));
+    msg->Set(String::New("content"),String::New(message.c_str()));  
 
     v8::Handle<v8::Value> msgv(msg);
     Handle<Value> argv[argc] = { msgv };
@@ -191,19 +206,16 @@ namespace sadira{
 
     sbig* obj = ObjectWrap::Unwrap<sbig>(args.This());
 
-    obj->cb = Local<Function>::Cast(args[0]);
-    obj->send_status_message("info","Shutdown camera");
-
+    Local<Function> cb = Local<Function>::Cast(args[0]);
+    send_status(cb,"info","Camera driver unloading","init");
+    
     try{
       obj->shutdown();
-      obj->send_status_message("off","Camera is off");
+      send_status(cb,"success","Camera driver unloaded","init");
     }
     catch (qk::exception& e){
-      obj->send_status_message("error",e.mess);
+      send_status(cb,"error",e.mess,"init");
     }
-
-
-
     
     Handle<Object> hthis(args.This());
     return scope.Close(hthis);
@@ -220,15 +232,16 @@ namespace sadira{
     }
     
     sbig* obj = ObjectWrap::Unwrap<sbig>(args.This());
-    obj->cb = Local<Function>::Cast(args[0]);    
-    obj->send_status_message("info","Initializing camera");
+    Local<Function> ccb=Local<Function>::Cast(args[0]);    
+    
+    send_status(ccb,"info","Initializing camera...","init");
 
     try{
       obj->initialize();
-      obj->send_status_message("ready","Camera is ready");
+      send_status(ccb,"success","Camera is ready","init");
     }
     catch (qk::exception& e){
-      obj->send_status_message("error",e.mess);
+      send_status(ccb,"error",e.mess,"init");
     }
     Handle<Object> hthis(args.This());
     return scope.Close(hthis);    
@@ -256,12 +269,12 @@ namespace sadira{
     fff=args.This()->Get(String::NewSymbol("nexpo"));
     obj->nexpo = fff->ToNumber()->Value();
 
-    obj->send_status_message("info","start exposure");
+    obj->send_status_message("info","Initializing exposure...");
 
     try{
 
       obj->start_exposure();
-      obj->send_status_message("started","Exposure started");
+      obj->send_status_message("info","Exposure started!");
 
       bool waiting=true;
       obj->event_id=0;

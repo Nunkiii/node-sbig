@@ -75,5 +75,4 @@ cam.initialize(function (init_message){
 	console.log("Camera init error : " + init_message.error );
 });
 
-
 console.log("END of test.js");
