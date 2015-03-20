@@ -175,6 +175,7 @@ namespace sadira{
   }
   
   void send_status(v8::Local<v8::Function>& cb, const string& type, const string& message, const string& id=""){
+    
     const unsigned argc = 1;
 
     v8::Handle<v8::Object> msg = v8::Object::New();
@@ -261,7 +262,8 @@ namespace sadira{
 
 
     sbig* obj = ObjectWrap::Unwrap<sbig>(args.This());
-    obj->cb = Local<Function>::Cast(args[0]);    
+    //obj->cb = Local<Function>::Cast(args[0]);    
+    Local<Function> cb=Local<Function>::Cast(args[0]);
     
     Handle<Value> fff=args.This()->Get(String::NewSymbol("exptime"));
     obj->exptime = fff->ToNumber()->Value();
@@ -269,12 +271,12 @@ namespace sadira{
     fff=args.This()->Get(String::NewSymbol("nexpo"));
     obj->nexpo = fff->ToNumber()->Value();
 
-    obj->send_status_message("info","Initializing exposure...");
+    send_status(cb,"info","Initializing exposure...","expo_proc");
 
     try{
 
       obj->start_exposure();
-      obj->send_status_message("info","Exposure started!");
+      send_status(cb,"info","Exposure started!","expo_proc");
 
       bool waiting=true;
       obj->event_id=0;
@@ -282,6 +284,7 @@ namespace sadira{
 
       while(waiting){
 	obj->new_event.lock();
+
 	while(obj->event_id==0){
 	  obj->new_event.wait();
 	  //expt.done.unlock();
@@ -295,17 +298,17 @@ namespace sadira{
 
 	if(obj->event_id==14) {
 	  char nstr[64]; sprintf(nstr,"%g",obj->complete);
-	  obj->send_status_message("expo_complete",nstr);
+	  send_status(cb,"expo_progress",nstr,"expo_proc");
 	}
 
 	if(obj->event_id==15) {
 	  char nstr[64]; sprintf(nstr,"%g",obj->complete);
-	  obj->send_status_message("grab_complete",nstr);
+	  send_status(cb,"grab_progress",nstr,"expo_proc");
 	}
 
 	if(obj->event_id==666) {
 	  waiting=false;
-	  obj->send_status_message("error",obj->error_message);
+	  send_status(cb,"error",obj->error_message,"expo_proc");
 	}
 	
 	if(obj->event_id==11) {
@@ -358,23 +361,37 @@ namespace sadira{
 	    jsmat<unsigned short>* last_i = jsmat_unwrap<unsigned short>(Handle<Object>::Cast(fff)); //new jsmat<unsigned short>();
 	    jsmat<unsigned short>* jsmv_unw = jsmat_unwrap<unsigned short>(Handle<Object>::Cast(jsmo)); //new jsmat<unsigned short>();
 
-	    cout << "COPY "<< jsmv_unw << " LIMG w ="<<obj->last_image.dims[0]<< endl;
+	    //cout << "COPY "<< jsmv_unw << " LIMG w ="<<obj->last_image.dims[0]<< endl;
 	    (*jsmv_unw)=obj->last_image;
 	    (*last_i)=obj->last_image;
-	    cout << "COPY OK w="<< jsmv_unw->dims[0] << endl;
+	    //cout << "COPY OK w="<< jsmv_unw->dims[0] << endl;
 
 	    Handle<Value> h_fimage=args.This()->Get(String::NewSymbol("last_image_float"));
 	    jsmat<float>* fimage = jsmat_unwrap<float>(Handle<Object>::Cast(h_fimage)); //new jsmat<unsigned short>();
 	    fimage->redim(last_i->dims[0],last_i->dims[1]);
 	    for(int p=0;p<fimage->dim;p++)fimage->c[p]=(float)last_i->c[p];
 
+	    
+	    const unsigned argc = 1;
+	    
+	    v8::Handle<v8::Object> msg = v8::Object::New();
+	    msg->Set(String::New("type"),String::New("new_image"));
+	    msg->Set(String::New("content"),h_fimage);  
+	    //if(id!="")
+	    msg->Set(String::New("id"),String::New("expo_proc"));  
+	    v8::Handle<v8::Value> msgv(msg);
+	    Handle<Value> argv[argc] = { msgv };
+	    cb->Call(Context::GetCurrent()->Global(), argc, argv );    
 
+	    /*
 	    v8::Handle<v8::Object> msg = v8::Object::New();
 	    msg->Set(String::New("new_image"),h_fimage);  
 	    //v8::Handle<v8::Value> msgv(msg);
 	    
 	    Handle<Value> argv[1] = { msg };
 	    obj->cb->Call(Context::GetCurrent()->Global(), 1, argv );    
+	    */
+
 	  }else{
 	    cout << "BUG ! empty handle !"<<endl;
 	  }
@@ -401,12 +418,12 @@ namespace sadira{
 	obj->new_event.unlock();
       }
 
-      obj->send_status_message("done","Exposure done");
-
-
+      send_status(cb,"success","Exposure done","expo_proc");
+      
+      
     }
     catch (qk::exception& e){
-      obj->send_status_message("error",e.mess);
+      send_status(cb,"error",e.mess,"expo_proc");
     }
     Handle<Object> hthis(args.This());
     return scope.Close(hthis);    
@@ -606,7 +623,7 @@ namespace sadira{
     CSBIGImg *pImg= 0;    
     pImg = new CSBIGImg;
 
-    MINFO << "Accumulating photons .... exptime="<<exptime << endl;
+    //MINFO << "Accumulating photons .... exptime="<<exptime << endl;
 
     //pCam->GetFullFrame( nWidth, nHeight);
     
@@ -636,7 +653,7 @@ namespace sadira{
       
       //      exptime.use();
 
-      MINFO << "Grabing image  "<< (expo+1) << "/" << nexpo<<endl;
+      //MINFO << "Grabing image  "<< (expo+1) << "/" << nexpo<<endl;
 
       
       //void CSBIGCam::GetGrabState(GRAB_STATE &grabState, double &percentComplete)
@@ -749,6 +766,8 @@ namespace sadira{
       // // last_image_ready_cond.lock();
       // last_image_ready=0;
       // last_image_ready_cond.unlock();
+
+      /*
       
       time_t tim= time(NULL);
       //printf("Time = [%s]",tstring);
@@ -763,7 +782,7 @@ namespace sadira{
       if((ferr = pImg->SaveImage(fn               , SBIF_FITS)) != SBFE_NO_ERROR) {
       	MERROR << "Error saving image !" << endl;
       }
-
+      */
 
       //system("ds9 grab.fits -frame refresh");
       
@@ -771,7 +790,7 @@ namespace sadira{
     
     continue_expo=0;
     //    continue_expo_mut.unlock();
-    MINFO << " Done exposures. Forcing closing of shutter." << endl;
+    // MINFO << " Done exposures. Forcing closing of shutter." << endl;
 
     close_shutter();
 
@@ -801,12 +820,12 @@ namespace sadira{
     SBIGUnivDrvCommand(CC_MISCELLANEOUS_CONTROL, &mcp, NULL);    
     check_error();
 
-    MINFO  << " Shutter closed !" << endl;
+    //    MINFO  << " Shutter closed !" << endl;
   }
 
 
   bool sbig::expo_thread::exec(){
-    MINFO << "Starting exposure...." << endl;
+    //    MINFO << "Starting exposure...." << endl;
 
     try{
       sbc->really_take_exposure();
