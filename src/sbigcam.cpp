@@ -35,89 +35,114 @@ namespace sadira{
     sb->new_event.broadcast();
     sb->new_event.unlock();
   }
-
-  
-  
   
   sbig::sbig():
     pcam(0),
     expt(this),
     infinite_loop(false),
-    continue_expo(0)
-  {  
+    continue_expo(0){  
   }
-
+  
   sbig::~sbig(){
     try{shutdown();} 
-    catch(qk::exception& e)
-      { MERROR<< e.mess << endl;}
-
-    
+    catch(qk::exception& e){
+      MERROR<< e.mess << endl;
+    }
   }
   
-
-  Handle<Value> sbig::New(const Arguments& args) {
-    HandleScope scope;
-    
-    sbig* obj = new sbig();
-    //  obj->counter_ = args[0]->IsUndefined() ? 0 : args[0]->NumberValue();
-    
   
-    //if(!args[0]->IsUndefined()){
+  void sbig::New(const FunctionCallbackInfo<Value>& args){
+
+    Isolate* isolate = args.GetIsolate();
+    
+    if (args.IsConstructCall()) {
+      
+      //HandleScope scope;
+      
+      sbig* obj = new sbig();
+      //  obj->counter_ = args[0]->IsUndefined() ? 0 : args[0]->NumberValue();
+      
+      
+      //if(!args[0]->IsUndefined()){
       //v8::String::Utf8Value s(args[0]->ToString());
       //obj->file_name=*s;
-    //}
+      //}
 
-    args.This()->Set(String::NewSymbol("exptime"), Number::New(0.5));
-    args.This()->Set(String::NewSymbol("nexpo"), Number::New(5));
-    args.This()->Set(String::NewSymbol("last_image"), jsmat<unsigned short>::Instantiate());
-    args.This()->Set(String::NewSymbol("last_image_float"), jsmat<float>::Instantiate());
-    
-    obj->Wrap(args.This());
-    return args.This();
+      //->Set(String::NewFromUtf8(isolate,"file_name"), args[0]);
+      args.This()->Set(String::NewFromUtf8(isolate,"exptime"), Number::New(isolate, 0.5));
+      args.This()->Set(String::NewFromUtf8(isolate,"nexpo"), Number::New(isolate, 5));
+      
+      Local<Function> jsu_cons = Local<Function>::New(isolate, jsmat<unsigned short>::constructor);
+      Local<Function> jsf_cons = Local<Function>::New(isolate, jsmat<float>::constructor);
+      
+      args.This()->Set(String::NewFromUtf8(isolate,"last_image"), jsu_cons->NewInstance());
+      args.This()->Set(String::NewFromUtf8(isolate,"last_image_float"), jsf_cons->NewInstance());
+      obj->Wrap(args.This());
+      
+      
+      
+      args.GetReturnValue().Set(args.This());
+      //return args.This();
+      
+    }else{
+      const int argc = 1;
+      Local<Value> argv[argc] = { args[0] };
+      Local<Function> cons = Local<Function>::New(isolate, constructor);
+      args.GetReturnValue().Set(cons->NewInstance(argc, argv));
+
+    }
+
   }
+  
 
+  //Persistent<FunctionTemplate> sbig::s_cts;
+  
+  
+  void sbig::set_temp_func(const FunctionCallbackInfo<Value>& args){
 
-  Persistent<FunctionTemplate> sbig::s_cts;
-
-
-  Handle<Value> sbig::set_temp_func(const Arguments& args) {
-
-    HandleScope scope;
+    Isolate* isolate = args.GetIsolate();
+    
     if (args.Length() != 2) {
-      return ThrowException(Exception::Error(String::New("Need setpoint info! 2 pars: (enabled, setpoint)")));
+      isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Need setpoint info! 2 pars: (enabled, setpoint)")));
+      return;
     }
 
     sbig* obj = ObjectWrap::Unwrap<sbig>(args.This());
     sbig_cam* cam=obj->pcam;
     
-    if(!cam)
-      return ThrowException(Exception::Error(String::New("Camera not connected!")));
+    if(!cam){
+      isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Camera not connected!")));
+      return;
+    }
 
     short unsigned int cooling_enabled=args[0]->ToNumber()->Value();
     double setpoint=args[1]->ToNumber()->Value();
     PAR_ERROR res = CE_NO_ERROR;
 
     if ( (res = cam->SetTemperatureRegulation(cooling_enabled, setpoint) ) != CE_NO_ERROR ){
-      return ThrowException(Exception::Error(String::New("Error setting CCD cooling!")));
+      isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Error setting CCD cooling!")));
+      return;
     }
-
-    Handle<Object> hthis(args.This());
-    return scope.Close(hthis);
+    
+    args.GetReturnValue().Set(args.This());
   }
+  
+  
+  void sbig::get_temp_func(const FunctionCallbackInfo<Value>& args){
 
-
-  Handle<Value> sbig::get_temp_func(const Arguments& args) {
-
-    HandleScope scope;
+    Isolate* isolate = args.GetIsolate();
+    
     sbig* obj = ObjectWrap::Unwrap<sbig>(args.This());
     
     sbig_cam* cam=obj->pcam;
-    
-    if(!cam)
-      return ThrowException(Exception::Error(String::New("Camera not connected!")));
 
-    v8::Handle<v8::Object> result = v8::Object::New();
+    if(!cam){
+      isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Camera not connected!")));
+      return;
+    }
+
+
+    v8::Handle<v8::Object> result = v8::Object::New(isolate);
 
     PAR_ERROR res = CE_NO_ERROR;
     double d,setpoint,cooling_power;
@@ -126,126 +151,121 @@ namespace sadira{
     
 
     if ( (res = cam->QueryTemperatureStatus(cooling_enabled, d, setpoint, cooling_power)) != CE_NO_ERROR ){
-      return ThrowException(Exception::Error(String::New("Error getting CCD temperature!")));
+      isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Error getting CCD temperature!")));
     }
 
-    result->Set(String::New("cooling"),v8::Number::New(cooling_enabled));
-    result->Set(String::New("cooling_setpoint"),v8::Number::New(setpoint));
-    result->Set(String::New("cooling_power"),v8::Number::New(cooling_power));
-    result->Set(String::New("ccd_temp"),v8::Number::New(d));
-
+    result->Set(String::NewFromUtf8(isolate, "cooling"),v8::Number::New(isolate, cooling_enabled));
+    result->Set(String::NewFromUtf8(isolate, "cooling_setpoint"),v8::Number::New(isolate, setpoint));
+    result->Set(String::NewFromUtf8(isolate, "cooling_power"),v8::Number::New(isolate, cooling_power));
+    result->Set(String::NewFromUtf8(isolate, "ccd_temp"),v8::Number::New(isolate, d));
+    
     QueryTemperatureStatusResults qtsr;
     
     // Ambient Temperature
     if ( (res = cam->SBIGUnivDrvCommand(CC_QUERY_TEMPERATURE_STATUS, NULL, &qtsr)) != CE_NO_ERROR ){
-      return ThrowException(Exception::Error(String::New("Error getting Ambient temperature!")));
+      isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Error getting Ambient temperature!")));
+      return;
     }
 
     d=cam->ADToDegreesC(qtsr.ambientThermistor, FALSE);
-    result->Set(String::New("ambient_temp"),v8::Number::New(d));
+    result->Set(String::NewFromUtf8(isolate, "ambient_temp"),v8::Number::New(isolate, d));
+    args.GetReturnValue().Set(result);
 
-    return scope.Close(result);    
   }
 
-  void sbig::init(Handle<Object> exports) {
-    // Prepare constructor template
-
-    Local<FunctionTemplate> tpl = FunctionTemplate::New(New);
-
-    s_cts = Persistent<FunctionTemplate>::New(tpl);
-    //s_cts->Inherit(colormap_interface::s_ct);     
-
-
-    s_cts->SetClassName(String::NewSymbol("sbig"));
-    s_cts->InstanceTemplate()->SetInternalFieldCount(1);
+  void sbig::init(Local<Object> target){
     
+    Isolate* isolate=target->GetIsolate();
+    Local<FunctionTemplate> tpl = FunctionTemplate::New(isolate, New);
+    
+    tpl->SetClassName(String::NewFromUtf8(isolate, "sbig"));
+    tpl->InstanceTemplate()->SetInternalFieldCount(6);
 
     // Prototype
-    s_cts->PrototypeTemplate()->Set(String::NewSymbol("initialize"),FunctionTemplate::New(initialize_func)->GetFunction());	
-    s_cts->PrototypeTemplate()->Set(String::NewSymbol("shutdown"),FunctionTemplate::New(shutdown_func)->GetFunction());
-    s_cts->PrototypeTemplate()->Set(String::NewSymbol("start_exposure"),FunctionTemplate::New(start_exposure_func)->GetFunction());
-    s_cts->PrototypeTemplate()->Set(String::NewSymbol("stop_exposure"),FunctionTemplate::New(stop_exposure_func)->GetFunction());
-    s_cts->PrototypeTemplate()->Set(String::NewSymbol("get_temp"),FunctionTemplate::New(get_temp_func)->GetFunction());
-    s_cts->PrototypeTemplate()->Set(String::NewSymbol("set_temp"),FunctionTemplate::New(set_temp_func)->GetFunction());
+    
+    NODE_SET_PROTOTYPE_METHOD(tpl, "initialize", initialize_func); 
+    NODE_SET_PROTOTYPE_METHOD(tpl, "shutdown", shutdown_func);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "start_exposure",start_exposure_func);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "stop_exposure", stop_exposure_func);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "get_temp", get_temp_func);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "set_temp", set_temp_func);
 
-    //Persistent<Function> constructor = Persistent<Function>::New(tpl->GetFunction());
-    //exports->Set(String::NewSymbol("cam"), constructor);
-    exports->Set(String::NewSymbol("cam"), s_cts->GetFunction());
-
+    target->Set(String::NewFromUtf8(isolate,"cam"), tpl->GetFunction());
+    constructor.Reset(isolate, tpl->GetFunction());
+    
   }
   
-  void send_status(v8::Local<v8::Function>& cb, const string& type, const string& message, const string& id=""){
+  void send_status(Isolate* isolate, v8::Local<v8::Function>& cb, const string& type, const string& message, const string& id=""){
     
     const unsigned argc = 1;
 
-    v8::Handle<v8::Object> msg = v8::Object::New();
-    msg->Set(String::New("type"),String::New(type.c_str()));
-    msg->Set(String::New("content"),String::New(message.c_str()));  
+    v8::Handle<v8::Object> msg = v8::Object::New(isolate);
+    msg->Set(String::NewFromUtf8(isolate, "type"),String::NewFromUtf8(isolate, type.c_str()));
+    msg->Set(String::NewFromUtf8(isolate, "content"),String::NewFromUtf8(isolate, message.c_str()));  
     if(id!="")
-      msg->Set(String::New("id"),String::New(id.c_str()));  
+      msg->Set(String::NewFromUtf8(isolate, "id"),String::NewFromUtf8(isolate, id.c_str()));  
     v8::Handle<v8::Value> msgv(msg);
     Handle<Value> argv[argc] = { msgv };
-    cb->Call(Context::GetCurrent()->Global(), argc, argv );    
+
+    cb->Call(isolate->GetCurrentContext()->Global(), argc, argv );    
   }
 
   
-  void sbig::send_status_message(const string& type, const string& message){
+  void sbig::send_status_message(Isolate* isolate, const string& type, const string& message){
     const unsigned argc = 1;
 
-    v8::Handle<v8::Object> msg = v8::Object::New();
-    msg->Set(String::New("type"),String::New(type.c_str()));
-    msg->Set(String::New("content"),String::New(message.c_str()));  
+    v8::Handle<v8::Object> msg = v8::Object::New(isolate);
+    msg->Set(String::NewFromUtf8(isolate, "type"),String::NewFromUtf8(isolate, type.c_str()));
+    msg->Set(String::NewFromUtf8(isolate, "content"),String::NewFromUtf8(isolate, message.c_str()));  
 
     v8::Handle<v8::Value> msgv(msg);
     Handle<Value> argv[argc] = { msgv };
-    cb->Call(Context::GetCurrent()->Global(), argc, argv );    
+    cb->Call(isolate->GetCurrentContext()->Global(), argc, argv );    
   }
 
-  Handle<Value> sbig::shutdown_func(const Arguments& args) {
-    HandleScope scope;
-
-
+  void sbig::shutdown_func(const FunctionCallbackInfo<Value>& args){
+    Isolate* isolate = args.GetIsolate();
+    
     sbig* obj = ObjectWrap::Unwrap<sbig>(args.This());
 
     Local<Function> cb = Local<Function>::Cast(args[0]);
-    send_status(cb,"info","Camera driver unloading","init");
+    send_status(isolate, cb,"info","Camera driver unloading","init");
     
     try{
       obj->shutdown();
-      send_status(cb,"success","Camera driver unloaded","init");
+      send_status(isolate, cb,"success","Camera driver unloaded","init");
     }
     catch (qk::exception& e){
-      send_status(cb,"error",e.mess,"init");
+      send_status(isolate, cb,"error",e.mess,"init");
     }
+
+    args.GetReturnValue().Set(args.This());
     
-    Handle<Object> hthis(args.This());
-    return scope.Close(hthis);
   }
 
-  Handle<Value> sbig::initialize_func(const Arguments& args) {
-
-    HandleScope scope;
-
+  void sbig::initialize_func(const FunctionCallbackInfo<Value>& args){
+    Isolate* isolate = args.GetIsolate();
+    
     const char* usage="usage: initialize( callback_function )";
 
     if (args.Length() != 1) {
-      return ThrowException(Exception::Error(String::New(usage)));
+      isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, usage)));
+      return;
     }
     
     sbig* obj = ObjectWrap::Unwrap<sbig>(args.This());
     Local<Function> ccb=Local<Function>::Cast(args[0]);    
     
-    send_status(ccb,"info","Initializing camera...","init");
+    send_status(isolate, ccb,"info","Initializing camera...","init");
 
     try{
       obj->initialize();
-      send_status(ccb,"success","Camera is ready","init");
+      send_status(isolate, ccb,"success","Camera is ready","init");
     }
     catch (qk::exception& e){
-      send_status(ccb,"error",e.mess,"init");
+      send_status(isolate, ccb,"error",e.mess,"init");
     }
-    Handle<Object> hthis(args.This());
-    return scope.Close(hthis);    
+    args.GetReturnValue().Set(args.This());
   }
 
 
@@ -256,27 +276,25 @@ namespace sadira{
   //jsmat<unsigned short>::constructor;
 
 
-  Handle<Value> sbig::start_exposure_func(const Arguments& args) {
-
-    HandleScope scope;
-
+  void sbig::start_exposure_func(const FunctionCallbackInfo<Value>& args){
+    Isolate* isolate = args.GetIsolate();
 
     sbig* obj = ObjectWrap::Unwrap<sbig>(args.This());
     //obj->cb = Local<Function>::Cast(args[0]);    
     Local<Function> cb=Local<Function>::Cast(args[0]);
     
-    Handle<Value> fff=args.This()->Get(String::NewSymbol("exptime"));
+    Handle<Value> fff=args.This()->Get(String::NewFromUtf8(isolate, "exptime"));
     obj->exptime = fff->ToNumber()->Value();
 
-    fff=args.This()->Get(String::NewSymbol("nexpo"));
+    fff=args.This()->Get(String::NewFromUtf8(isolate, "nexpo"));
     obj->nexpo = fff->ToNumber()->Value();
 
-    send_status(cb,"info","Initializing exposure...","expo_proc");
+    send_status(isolate, cb,"info","Initializing exposure...","expo_proc");
 
     try{
 
       obj->start_exposure();
-      send_status(cb,"info","Exposure started!","expo_proc");
+      send_status(isolate, cb,"info","Exposure started!","expo_proc");
 
       bool waiting=true;
       obj->event_id=0;
@@ -298,17 +316,17 @@ namespace sadira{
 
 	if(obj->event_id==14) {
 	  char nstr[64]; sprintf(nstr,"%g",obj->complete);
-	  send_status(cb,"expo_progress",nstr,"expo_proc");
+	  send_status(isolate, cb,"expo_progress",nstr,"expo_proc");
 	}
 
 	if(obj->event_id==15) {
 	  char nstr[64]; sprintf(nstr,"%g",obj->complete);
-	  send_status(cb,"grab_progress",nstr,"expo_proc");
+	  send_status(isolate, cb,"grab_progress",nstr,"expo_proc");
 	}
 
 	if(obj->event_id==666) {
 	  waiting=false;
-	  send_status(cb,"error",obj->error_message,"expo_proc");
+	  send_status(isolate, cb,"error",obj->error_message,"expo_proc");
 	}
 	
 	if(obj->event_id==11) {
@@ -332,7 +350,7 @@ namespace sadira{
 	  const unsigned argc = 1;
 	  
 	  v8::Handle<v8::Object> msg = v8::Object::New();
-	  msg->Set(String::New("image"),hb->handle_);  
+	  msg->Set(String::NewFromUtf8(isolate, "image"),hb->handle_);  
 	  
 	  v8::Handle<v8::Value> msgv(msg);
 	  Handle<Value> argv[argc] = { msgv };
@@ -346,46 +364,50 @@ namespace sadira{
 	  //Handle<Object> jsmv = jsmat<unsigned short>::Instantiate();
 	  
 	  //cout << "JSM empty ? " << jsm.IsEmpty() << endl;
-
-	  Handle<Value> jsm =jsmat<unsigned short>::Instantiate();	  
+	  Local<Function> jsu_cons = Local<Function>::New(isolate, jsmat<unsigned short>::constructor);
+	  
+	  Handle<Value> jsm =jsu_cons->NewInstance();	  
 	  Handle<Object> jsmo = Handle<Object>::Cast(jsm);
-
+	  
 	  //cout << "JSMO empty ? " << jsmo.IsEmpty() << endl;
 
 
 	  if(!jsmo.IsEmpty()){
 
-	    Handle<Value> fff=args.This()->Get(String::NewSymbol("last_image"));
+	    Handle<Value> fff=args.This()->Get(String::NewFromUtf8(isolate, "last_image"));
 
 
-	    jsmat<unsigned short>* last_i = jsmat_unwrap<unsigned short>(Handle<Object>::Cast(fff)); //new jsmat<unsigned short>();
-	    jsmat<unsigned short>* jsmv_unw = jsmat_unwrap<unsigned short>(Handle<Object>::Cast(jsmo)); //new jsmat<unsigned short>();
+	    jsmat<unsigned short>* last_i = ObjectWrap::Unwrap<jsmat<unsigned short> >(Handle<Object>::Cast(fff));
+	    jsmat<unsigned short>* jsmv_unw = ObjectWrap::Unwrap<jsmat<unsigned short> >(Handle<Object>::Cast(jsmo));
+	    
+	    //jsmat<unsigned short>* last_i = jsmat_unwrap<unsigned short>(Handle<Object>::Cast(fff)); //new jsmat<unsigned short>();
+	    //jsmat<unsigned short>* jsmv_unw = jsmat_unwrap<unsigned short>(Handle<Object>::Cast(jsmo)); //new jsmat<unsigned short>();
 
 	    //cout << "COPY "<< jsmv_unw << " LIMG w ="<<obj->last_image.dims[0]<< endl;
 	    (*jsmv_unw)=obj->last_image;
 	    (*last_i)=obj->last_image;
 	    //cout << "COPY OK w="<< jsmv_unw->dims[0] << endl;
 
-	    Handle<Value> h_fimage=args.This()->Get(String::NewSymbol("last_image_float"));
-	    jsmat<float>* fimage = jsmat_unwrap<float>(Handle<Object>::Cast(h_fimage)); //new jsmat<unsigned short>();
+	    Handle<Value> h_fimage=args.This()->Get(String::NewFromUtf8(isolate, "last_image_float"));
+	    jsmat<float>* fimage = ObjectWrap::Unwrap<jsmat<float> >(Handle<Object>::Cast(h_fimage)); //new jsmat<unsigned short>();
 	    fimage->redim(last_i->dims[0],last_i->dims[1]);
 	    for(int p=0;p<fimage->dim;p++)fimage->c[p]=(float)last_i->c[p];
 
 	    
 	    const unsigned argc = 1;
 	    
-	    v8::Handle<v8::Object> msg = v8::Object::New();
-	    msg->Set(String::New("type"),String::New("new_image"));
-	    msg->Set(String::New("content"),h_fimage);  
+	    v8::Handle<v8::Object> msg = v8::Object::New(isolate);
+	    msg->Set(String::NewFromUtf8(isolate, "type"),String::NewFromUtf8(isolate, "new_image"));
+	    msg->Set(String::NewFromUtf8(isolate, "content"),h_fimage);  
 	    //if(id!="")
-	    msg->Set(String::New("id"),String::New("expo_proc"));  
+	    msg->Set(String::NewFromUtf8(isolate, "id"),String::NewFromUtf8(isolate, "expo_proc"));  
 	    v8::Handle<v8::Value> msgv(msg);
 	    Handle<Value> argv[argc] = { msgv };
-	    cb->Call(Context::GetCurrent()->Global(), argc, argv );    
+	    cb->Call(isolate->GetCurrentContext()->Global(), argc, argv );    
 
 	    /*
 	    v8::Handle<v8::Object> msg = v8::Object::New();
-	    msg->Set(String::New("new_image"),h_fimage);  
+	    msg->Set(String::NewFromUtf8(isolate, "new_image"),h_fimage);  
 	    //v8::Handle<v8::Value> msgv(msg);
 	    
 	    Handle<Value> argv[1] = { msg };
@@ -418,33 +440,30 @@ namespace sadira{
 	obj->new_event.unlock();
       }
 
-      send_status(cb,"success","Exposure done","expo_proc");
+      send_status(isolate, cb,"success","Exposure done","expo_proc");
       
       
     }
     catch (qk::exception& e){
-      send_status(cb,"error",e.mess,"expo_proc");
+      send_status(isolate, cb,"error",e.mess,"expo_proc");
     }
-    Handle<Object> hthis(args.This());
-    return scope.Close(hthis);    
+
+    args.GetReturnValue().Set(args.This());
+
   }
 
-  Handle<Value> sbig::stop_exposure_func(const Arguments& args) {
+  void sbig::stop_exposure_func(const FunctionCallbackInfo<Value>& args){
 
-    HandleScope scope;
-    
+    Isolate* isolate = args.GetIsolate();
 
     sbig* obj = ObjectWrap::Unwrap<sbig>(args.This());
 
 
     obj->cb = Local<Function>::Cast(args[0]);
-    obj->send_status_message("info","stop exposure");
+    obj->send_status_message(isolate, "info","stop exposure");
     obj->stop_exposure();
     
-
-    Handle<Object> hthis(args.This());
-    return scope.Close(hthis);    
-    
+    args.GetReturnValue().Set(args.This());
   }
 
   void sbig::shutdown(){
@@ -686,7 +705,7 @@ namespace sadira{
 	  const unsigned argc = 1;
 	  
 	  v8::Handle<v8::Object> msg = v8::Object::New();
-	  msg->Set(String::New("image"),hb->handle_);  
+	  msg->Set(String::NewFromUtf8(isolate, "image"),hb->handle_);  
 	  
 	  v8::Handle<v8::Value> msgv(msg);
 	  Handle<Value> argv[argc] = { msgv };
@@ -996,8 +1015,8 @@ namespace sadira{
   
 
 
-  template <class T> Persistent<FunctionTemplate>  jsmat<T>::s_ctm;
-  template <class T> Persistent<Function> jsmat<T>::constructor;
+  //  template <class T> Persistent<FunctionTemplate>  jsmat<T>::s_ctm;
+  // template <class T> Persistent<Function> jsmat<T>::constructor;
 
   template class jsmat<unsigned short> ;
   //Persistent<FunctionTemplate> jsmat<unsigned short>::s_ctm;

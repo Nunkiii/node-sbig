@@ -1,6 +1,6 @@
 /*
   The Quarklib project.
-  Written by Pierre Sprimont, <sprimont@iasfbo.inaf.it>, INAF/IASF-Bologna, 2014.
+  Written by Pierre Sprimont, <sprimont@iasfbo.inaf.it>, INAF/IASF-Bologna, 2014-2016.
   This source-code is not free, but do what you want with it anyway.
 */
 
@@ -9,6 +9,7 @@
 #define __SBIG_HH__
 
 #include <node.h>
+#include <node_object_wrap.h>
 #include <node_buffer.h>
 
 #include <string>
@@ -31,41 +32,45 @@ namespace sadira{
   class sbig;
 
   class sbig_cam : public CSBIGCam{
+
   public:
-    sbig_cam(sbig* _sbig, SBIG_DEVICE_TYPE dev):CSBIGCam(dev),sb(_sbig){
 
+    sbig_cam(sbig* _sbig, SBIG_DEVICE_TYPE dev)
+      :CSBIGCam(dev),sb(_sbig){
+      
     }
+    
     virtual ~sbig_cam(){}
-
+    
     virtual void grab_complete(double pc);
     virtual void expo_complete(double pc);
     sbig* sb;
   };
-
-  class sbig : public ObjectWrap { //public colormap_interface {
+  
+  class sbig : public node::ObjectWrap { //public colormap_interface {
   public:
-    static void init(v8::Handle<v8::Object> exports);
-
+    static void init(Local<Object> exports);
+    
     static Persistent<FunctionTemplate> s_cts;
     
   private:
+
     explicit sbig();
     ~sbig();
-
-    void send_status_message(const string& type, const string& message);
+    
+    void send_status_message(Isolate* isolate, const string& type, const string& message);
     //v8::Handle<node::Buffer> gen_pngtile(v8::Handle<v8::Array>& parameters);
     
+    static void New(const FunctionCallbackInfo<Value>& args);
+    static void shutdown_func(const FunctionCallbackInfo<Value>& args);
+    static void initialize_func(const FunctionCallbackInfo<Value>& args);
+    static void start_exposure_func(const FunctionCallbackInfo<Value>& args);
+    static void stop_exposure_func(const FunctionCallbackInfo<Value>& args);
+    static void get_temp_func(const FunctionCallbackInfo<Value>& args);
+    static void set_temp_func(const FunctionCallbackInfo<Value>& args);
     
-    static v8::Handle<v8::Value> New(const v8::Arguments& args);
-    
-    static v8::Handle<v8::Value> shutdown_func(const v8::Arguments& args);    
-    static v8::Handle<v8::Value> initialize_func(const v8::Arguments& args);
-    static v8::Handle<v8::Value> start_exposure_func(const v8::Arguments& args);
-    static v8::Handle<v8::Value> stop_exposure_func(const v8::Arguments& args);
-    static v8::Handle<v8::Value> get_temp_func(const v8::Arguments& args);
-    static v8::Handle<v8::Value> set_temp_func(const v8::Arguments& args);
-
     class expo_thread : public thread{
+      
     public:
       expo_thread(sbig* _sbc):sbc(_sbc),running(0){}
       virtual ~expo_thread(){}
@@ -86,6 +91,8 @@ namespace sadira{
     double complete;
   private:
     v8::Local<v8::Function> cb;
+
+    static Persistent<Function> constructor;
     
     /*
     REG_BASE_OBJECT sbig();
