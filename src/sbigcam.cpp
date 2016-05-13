@@ -19,6 +19,8 @@ namespace sadira{
   using namespace std;  
   using namespace qk;
 
+  Persistent<Function> sbig::constructor;
+  
   void sbig_cam::expo_complete(double pc){
     sb->new_event.lock();
     sb->event_id=14;

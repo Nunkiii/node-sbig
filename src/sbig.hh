@@ -51,7 +51,7 @@ namespace sadira{
   public:
     static void init(Local<Object> exports);
     
-    static Persistent<FunctionTemplate> s_cts;
+    //static Persistent<FunctionTemplate> s_cts;
     
   private:
 
