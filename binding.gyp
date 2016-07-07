@@ -10,12 +10,13 @@
 		"../node-fits/qk/threads.cpp", 
 		"src/csbigcam/csbigcam.cpp",
 		"src/csbigcam/csbigimg.cpp", 
-		"src/sbigcam.cpp", 
+		"src/sbigcam.cpp",
 	    ],
 	    
 	    'conditions': [
 		['OS=="linux"', {
-		    'ldflags': ['-lcfitsio','-lpng', '-ljpeg', '-lsbigudrv'],
+		    'ldflags': [],
+		    'libraries' : ["-fPIC",'-lcfitsio','-lpng', '-ljpeg',"/usr/lib/libsbigudrv.a", "/usr/lib/x86_64-linux-gnu/libusb-1.0.so" ],
 		    'cflags_cc': [ '-fexceptions','-I../../node-fits', '-frtti', '-I.', '-I..'],
 		    'cflags_cc!': [
 			'-fno-exceptions'

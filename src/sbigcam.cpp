@@ -393,6 +393,9 @@ namespace sadira{
 	    Handle<Value> h_fimage=args.This()->Get(String::NewFromUtf8(isolate, "last_image_float"));
 	    jsmat<float>* fimage = ObjectWrap::Unwrap<jsmat<float> >(Handle<Object>::Cast(h_fimage)); //new jsmat<unsigned short>();
 	    fimage->redim(last_i->dims[0],last_i->dims[1]);
+
+	    MINFO << "Copy float image DIMS " << last_i->dims[0] << ", " << last_i->dims[1] << endl;
+	    
 	    for(int p=0;p<fimage->dim;p++)fimage->c[p]=(float)last_i->c[p];
 
 	    

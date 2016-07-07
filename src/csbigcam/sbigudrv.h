@@ -35,6 +35,8 @@
 	SBIG Specific Code
 
 */
+
+
 #ifndef TARGET
  #define ENV_WIN		1				/* Target for Windows environment */
  #define ENV_WINVXD		2				/* SBIG Use Only, Win 9X VXD */
@@ -46,6 +48,7 @@
  #define ENV_NIOS	    8				/* SBIG Use Only, Embedded NIOS */
  #define TARGET			ENV_WIN		    /* Set for your target */
 #endif
+
 
 /*
 
@@ -871,6 +874,7 @@ typedef struct {
 	read them and fill them in respectively.
 
 */
+
 #if TARGET == ENV_WIN
   #ifdef __cplusplus
   	extern "C" short __stdcall SBIGUnivDrvCommand(short command, void *Params, void *Results);
@@ -884,6 +888,9 @@ typedef struct {
     extern short SBIGUnivDrvCommand(short command, void *Params, void *Results);
   #endif
 #endif
+
+
+
 
 #endif /* ifndef _PARDRV_ */
 
