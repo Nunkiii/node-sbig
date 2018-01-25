@@ -1,0 +1,30 @@
+{
+  "name": "node-sbig",
+  "version": "0.1.0",
+  "description": "A Node.js frontend to the SBIG astronomical cameras.",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "test/test.js",
+    "install": "node-gyp rebuild"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Nunkiii/node-sbig.git"
+  },
+  "keywords": [
+    "node",
+    "sbig",
+    "fits",
+    "astronomy"
+  ],
+  "author": "Pierre Sprimont",
+  "license": "ISC",
+  "gypfile": true,
+  "bugs": {
+    "url": "https://github.com/Nunkiii/node-sbig/issues"
+  },
+  "homepage": "https://github.com/Nunkiii/node-sbig#readme"
+}
