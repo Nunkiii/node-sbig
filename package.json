@@ -26,5 +26,8 @@
   "bugs": {
     "url": "https://github.com/Nunkiii/node-sbig/issues"
   },
-  "homepage": "https://github.com/Nunkiii/node-sbig#readme"
+  "homepage": "https://github.com/Nunkiii/node-sbig#readme",
+  "dependencies": {
+    "node-fits": "github:Nunkiii/node-fits"
+  }
 }
