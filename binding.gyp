@@ -3,11 +3,11 @@
 	{
 	    "target_name": "sbig",	
 	    "sources": [ 
-	    	"../node-fits/fits/fits.cpp",
-		"../node-fits/qk/exception.cpp",
-		"../node-fits/qk/pngwriter.cpp",
-		"../node-fits/qk/jpeg_writer.cpp",
-		"../node-fits/qk/threads.cpp", 
+	    	"./node_modules/node-fits/fits/fits.cpp",
+		"./node_modules/node-fits/qk/exception.cpp",
+		"./node_modules/node-fits/qk/pngwriter.cpp",
+		"./node_modules/node-fits/qk/jpeg_writer.cpp",
+		"./node_modules/node-fits/qk/threads.cpp", 
 		"src/csbigcam/csbigcam.cpp",
 		"src/csbigcam/csbigimg.cpp", 
 		"src/sbigcam.cpp",

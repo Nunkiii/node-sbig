@@ -28,6 +28,8 @@
   },
   "homepage": "https://github.com/Nunkiii/node-sbig#readme",
   "dependencies": {
-    "node-fits": "github:Nunkiii/node-fits"
-  }
+    "node-fits": "github:Nunkiii/node-fits",
+    "node-gyp": "^3.7.0"
+  },
+  "devDependencies": {}
 }

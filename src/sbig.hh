@@ -18,9 +18,13 @@
 //#include "colormap.hh"
 #include "csbigcam/csbigcam.h"
 
-#include "../node-fits/qk/mat.hh"
-#include "../node-fits/qk/threads.hh"
-//#include "../node-fits/colormap/colormap_interface.hh"
+#include "./node_modules/node-fits/qk/mat.hh"
+#include "./node_modules/node-fits/qk/threads.hh"
+//#include "./node_modules/node-fits/colormap/colormap_interface.hh"
+
+// #include "../node-fits/qk/mat.hh"
+// #include "../node-fits/qk/threads.hh"
+// //#include "../node-fits/colormap/colormap_interface.hh"
 
 namespace sadira{
   
