@@ -11,13 +11,15 @@ You will need to install the development versions of `libpng` and `libcfitsio` (
 
 The `libsbigudrv.so` SBIG proprietary library driver and the camera firmware must be correctly installed on your system and the camera clearly identified (`lsusb` to check). 
 
-On Debian-like systems,
+On Debian-like systems to install node (for example):
 
-    #apt-get install node node-gyp g++ libpng-dev libcfitsio-dev libusb-1.0-0-dev libsbigudrv-dev
-
+    #apt-get install node node-gyp 
+    
+And to install dependecies:
+    
+    g++ libpng-dev libcfitsio-dev libusb-1.0-0-dev libsbigudrv-dev
    
 You will need the `node-fits` plugin source code on the same directory as this module for the compilation to succeed. In the node-sbig directory, the following commands should then build the module:
-
 
     $node-gyp configure
     $node-gyp build
