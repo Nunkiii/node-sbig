@@ -16,15 +16,20 @@
 	    'conditions': [
 		['OS=="linux"', {
 		    'ldflags': [],
-		    'libraries' : ["-fPIC",'-lcfitsio','-lpng', '-ljpeg',"/usr/lib/libsbigudrv.a", "/usr/lib/x86_64-linux-gnu/libusb-1.0.so" ],
-		    'cflags_cc': [ '-fexceptions','-I../../node-fits', '-frtti', '-I.', '-I..'],
+		    'libraries' : ["-fPIC",'-lcfitsio','-lpng', '-ljpeg','-lsbig', "/usr/lib/x86_64-linux-gnu/libusb-1.0.so" ],
+		    'cflags_cc': [ '-fexceptions','-I /usr/include/libusb-1.0','-I../../node-fits', '-frtti', '-I.', '-I..'],
 		    'cflags_cc!': [
 			'-fno-exceptions'
 		    ],
 		}],
             ],
+
+	    "include_dirs" : ["<!(node -e \"require('nan')\")"]   
 	    
 	},
     ],
-  }
+    "dependencies": {
+     	"nan": "^2.7.0"
+     }
+}
 

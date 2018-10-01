@@ -28,7 +28,12 @@ Compile Time Options
 #ifndef _LPARDRV_
  #include "lpardrv.h"
 #endif
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/time.h>
 #include <time.h>
+#include <stdint.h>
+#include <unistd.h>
 #include <string>
 
 using namespace std;
@@ -93,13 +98,10 @@ typedef enum
 class CSBIGImg
 {
 /* */
-
- public:
-
+private:
 	int					m_nHeight, m_nWidth;			// image size in pixels
 	int					m_nSubFrameTop, m_nSubFrameLeft;// for partial frames the top-left pixel
 	unsigned short		*m_pImage;						// pointer to image data
- private:
 	double				m_dCCDTemperature;				// CCD Temp at start of exposure
 	double				m_dExposureTime;				// Exposure time in seconds
 	double				m_dTrackExposure;				// Exposure when tracking
@@ -135,7 +137,7 @@ public:
 	/* Constructors/Destructor */
 	CSBIGImg(void);
 	CSBIGImg(int height, int width);
-	~				CSBIGImg(void);
+	~CSBIGImg(void);
 
 	void			Init(void);
 	void			DeleteImageData(void);

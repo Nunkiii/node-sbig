@@ -3,6 +3,8 @@ var sbig = require('../build/Release/sbig');
 
 var cam= new sbig.cam();
 
+var fs=require("fs");
+
 cam.initialize(function (init_message){
 
     console.log("Init : " + JSON.stringify(init_message));
@@ -13,7 +15,7 @@ cam.initialize(function (init_message){
 
 	var expo_counter=0;
 
-	cam.exptime=.05;
+	cam.exptime=.5
 	cam.nexpo=1;
 
 	console.log("Cam cooling info = " + JSON.stringify(cam.get_temp()));
@@ -31,13 +33,27 @@ cam.initialize(function (init_message){
 		var img=expo_message.content;
 		var fifi=new fits.file; //("test_"+(expo_counter++)+".fits");
 		fifi.file_name="test_"+(expo_counter++)+".fits";
-
+		
 
 
 		console.log("New image ! w= " + img.width() + " h= " + img.height() + " writing in file " + fifi.file_name );
 
+
+		
+
+		
+		var out = fs.createWriteStream("big.jpeg");
+		//out.write(img.tile( { tile_coord :  [0,0], zoom :  0, tile_size : [256,256], type : "jpeg" }));
+		out.end();
+		
 		fifi.write_image_hdu(img);
 
+		fifi.set_header_key({ key : "BZERO" , value: 0}, function(r){
+		    if(r!==undefined)
+			console.log("Set hdu key error : " + JSON.stringify(r));
+		});
+		
+		
 		var fifi_float=new fits.file; //("test_"+(expo_counter++)+".fits");
 		fifi_float.file_name="test_"+(expo_counter++)+"_float.fits";
 		fifi_float.write_image_hdu(cam.last_image_float);

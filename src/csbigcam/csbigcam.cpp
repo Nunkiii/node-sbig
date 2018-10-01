@@ -75,8 +75,8 @@
 #include <string>
 #include <math.h>
 #include <stdio.h>
+
 #include <iostream>
-#include <unistd.h>
 
 using namespace std;
 
@@ -87,10 +87,8 @@ using namespace std;
 #define VERSION_STR		"1.33"	/* version of this class */
 
 /*
-  
  Temperature Conversion Constants
  Defined in the SBIG Universal Driver Documentation
- 
 */
 #define T0      25.0
 #define R0       3.0
@@ -137,19 +135,21 @@ static double hex2double(unsigned long ul)
 */
 void CSBIGCam::Init()
 {
-	m_eLastError = CE_NO_ERROR;
-	m_eLastCommand = (PAR_COMMAND)0;
-	m_nDrvHandle = INVALID_HANDLE_VALUE;
-	m_eCameraType = NO_CAMERA;
-	m_eActiveCCD = CCD_IMAGING;
-	m_dExposureTime = 1.0;
-	m_uReadoutMode = 0;
-	m_eABGState = ABG_CLK_MED7;
-	m_nSubFrameLeft = m_nSubFrameTop = m_nSubFrameWidth = m_nSubFrameHeight = 0;
-	m_eGrabState = GS_IDLE;
-	m_dGrabPercent = 0.0;
-	m_eCFWModel = CFWSEL_UNKNOWN;
-	m_eCFWError = CFWE_NONE;
+	m_eLastError 			= CE_NO_ERROR;
+	m_eLastCommand 		= (PAR_COMMAND)0;
+	m_nDrvHandle 			= INVALID_HANDLE_VALUE;
+	m_eCameraType 		= NO_CAMERA;
+	m_eActiveCCD 			= CCD_IMAGING;
+	m_dExposureTime 	= 0.1;
+	m_uReadoutMode 		= 0;
+	m_eABGState 			= ABG_CLK_MED7;
+	m_nSubFrameLeft 	= m_nSubFrameTop = m_nSubFrameWidth = m_nSubFrameHeight = 0;
+	m_eGrabState 			= GS_IDLE;
+	m_dGrabPercent 		= 0.0;
+	m_eCFWModel 			= CFWSEL_UNKNOWN;
+	m_eCFWError 			= CFWE_NONE;
+	m_FastReadout 		= false;
+	m_DualChannelMode	= false;
 }
 
 /*
@@ -179,8 +179,10 @@ CSBIGCam::CSBIGCam()
 CSBIGCam::CSBIGCam(OpenDeviceParams odp)
 {
 	Init();
-	if ( OpenDriver() == CE_NO_ERROR )
+	if (OpenDriver() == CE_NO_ERROR)
+	{
 		m_eLastError = OpenDevice(odp);
+	}
 }
 
 /*
@@ -199,15 +201,21 @@ CSBIGCam::CSBIGCam(SBIG_DEVICE_TYPE dev)
 {
 	OpenDeviceParams odp;
 	
-	odp.ipAddress = 0x00;
-	odp.lptBaseAddress = 0x00;
+	odp.ipAddress 		= 0x00;
+	odp.lptBaseAddress 	= 0x00;
 	Init();
-	if ( dev == DEV_ETH )
+
+	if (dev == DEV_ETH)
+	{
 		m_eLastError = CE_BAD_PARAMETER;
-	else {
+	}
+	else
+	{
 		odp.deviceType = dev;
-		if ( OpenDriver() == CE_NO_ERROR )
+		if (OpenDriver() == CE_NO_ERROR)
+		{
 			m_eLastError = OpenDevice(odp);
+		}
 	}
 }
 
@@ -221,8 +229,8 @@ CSBIGCam::CSBIGCam(SBIG_DEVICE_TYPE dev)
 */
 CSBIGCam::~CSBIGCam()
 {
-  CloseDevice();
-  CloseDriver();
+	CloseDevice();
+	CloseDriver();
 }
 
 /*
@@ -234,7 +242,7 @@ CSBIGCam::~CSBIGCam()
 */
 PAR_ERROR CSBIGCam::GetError()
 {
-  return m_eLastError;
+	return m_eLastError;
 }
 
 /*
@@ -261,17 +269,17 @@ PAR_COMMAND CSBIGCam::GetCommand()
 */
 void CSBIGCam::SetSubFrame(int nLeft, int nTop, int nWidth, int nHeight)
 {
-	m_nSubFrameLeft = nLeft;
-	m_nSubFrameTop = nTop;
-	m_nSubFrameWidth = nWidth;
-	m_nSubFrameHeight = nHeight;
+	m_nSubFrameLeft		= nLeft;
+	m_nSubFrameTop 		= nTop;
+	m_nSubFrameWidth 	= nWidth;
+	m_nSubFrameHeight	= nHeight;
 }
 
 void CSBIGCam::GetSubFrame(int &nLeft, int &nTop, int &nWidth, int &nHeight)
 {
-	nLeft = m_nSubFrameLeft;
-	nTop = m_nSubFrameTop;
-	nWidth = m_nSubFrameWidth;
+	nLeft	= m_nSubFrameLeft;
+	nTop 	= m_nSubFrameTop;
+	nWidth 	= m_nSubFrameWidth;
 	nHeight = m_nSubFrameHeight;
 }
 
@@ -285,28 +293,46 @@ void CSBIGCam::GetSubFrame(int &nLeft, int &nTop, int &nWidth, int &nHeight)
 */
 PAR_ERROR CSBIGCam::GetFullFrame(int &nWidth, int &nHeight)
 {
-	GetCCDInfoResults0 gcir;
-	GetCCDInfoParams gcip;
-	unsigned short vertNBinning;
-	unsigned short rm;
+	GetCCDInfoResults0 	gcir;
+	GetCCDInfoParams 	gcip;
+	unsigned short 		vertNBinning;
+	unsigned short 		rm;
 
 	// Get the image dimensions
 	vertNBinning = m_uReadoutMode >> 8;
-	if ( vertNBinning == 0 )
+
+	if (vertNBinning == 0)
+	{
 		vertNBinning = 1;
+	}
+
 	rm = m_uReadoutMode & 0xFF;
 	gcip.request = (m_eActiveCCD == CCD_IMAGING ? CCD_INFO_IMAGING : CCD_INFO_TRACKING);
-	if ( SBIGUnivDrvCommand(CC_GET_CCD_INFO, &gcip, &gcir) != CE_NO_ERROR )
+
+	if (SBIGUnivDrvCommand(CC_GET_CCD_INFO, &gcip, &gcir) != CE_NO_ERROR)
+	{
 		return m_eLastError;
-	if ( rm >= gcir.readoutModes )
+	}
+
+	if (rm >= gcir.readoutModes)
+	{
 		return CE_BAD_PARAMETER;
+	}
+
 	nWidth = gcir.readoutInfo[rm].width;
-	if ( m_eCameraType == STI_CAMERA && rm >= 2 && rm <= 3 )
+
+	if (m_eCameraType == STI_CAMERA && rm >= 2 && rm <= 3)
+	{
 		nHeight = gcir.readoutInfo[rm-2].height / vertNBinning;
-	else if ( rm >= 3 && rm <= 5 )
+	}
+	else if (rm >= 3 && rm <= 5)
+	{
 		nHeight = gcir.readoutInfo[rm-3].height / vertNBinning;
+	}
 	else
+	{
 		nHeight = gcir.readoutInfo[rm].height / vertNBinning;
+	}
 	return CE_NO_ERROR;
 }
 
@@ -328,61 +354,60 @@ static const char *CAM_NAMES[] = {
 	"ST-237", "ST-K", "ST-9", "STV", "ST-10",
 	"ST-1K", "ST-2K", "STL", "ST-402", "STX",
 	"ST-4K", "STT", "ST-i",	"STF-8300" };
-
 string CSBIGCam::GetCameraTypeString(void)
 {
-  string s;
-  GetCCDInfoParams gcip;
-  GetCCDInfoResults0 gcir;
-  char *p1, *p2;
-  int isColor = FALSE;
-  
-  if ( m_eCameraType < (CAMERA_TYPE)(sizeof(CAM_NAMES)/sizeof(const char *)) ) {
-    // default name
-    s = CAM_NAMES[m_eCameraType];
-    
-    // Get name info
-    gcip.request = CCD_INFO_IMAGING;
-    if ( SBIGUnivDrvCommand(CC_GET_CCD_INFO, &gcip, &gcir) != CE_NO_ERROR )
-      return s;
-    
-    // Color cameras report as SBIG ST-XXX Color...
-    if ( strstr(gcir.name, "Color") != 0 )
-      isColor = TRUE;
-    
-    // see if ST-237A and if so indicate it in the name
-    if ( m_eCameraType == ST237_CAMERA && gcir.readoutInfo[0].gain >= 0x100 )
-      s += "A";
-    
-    // include any sub-models
-    if ( m_eCameraType == STL_CAMERA ||
-	 m_eCameraType == ST402_CAMERA ||
-	 m_eCameraType == STX_CAMERA ||
-	 m_eCameraType == STT_CAMERA ) {
-      // driver reports STL names as "SBIG ST-L-XXX..."
-      // driver reports ST-402 names as "SBIG ST-XXX..."
-      // driver reports ST-X names as "SBIG STX-XXX..."
-      // driver reports STT names as "SBIG STT-XXX..."
-      p1 = gcir.name + 5;
-      if ( (p2 = strchr(p1,' ')) != NULL ) {
-	*p2 = 0;
-	s = p1;
-      }
-    }
-    if ( isColor )
-      s += "C";
-  }
-  else if ( m_eCameraType == NO_CAMERA )
-    s = "No Camera";
-  else
-    s = "Unknown";
-  return s;
+	string s;
+	GetCCDInfoParams gcip;
+	GetCCDInfoResults0 gcir;
+	char *p1, *p2;
+	int isColor = FALSE;
+	
+	if ( m_eCameraType < (CAMERA_TYPE)(sizeof(CAM_NAMES)/sizeof(const char *)) ) {
+		// default name
+		s = CAM_NAMES[m_eCameraType];
+		
+		// Get name info
+		gcip.request = CCD_INFO_IMAGING;
+		if ( SBIGUnivDrvCommand(CC_GET_CCD_INFO, &gcip, &gcir) != CE_NO_ERROR )
+			return s;
+			
+		// Color cameras report as SBIG ST-XXX Color...
+		if ( strstr(gcir.name, "Color") != 0 )
+			isColor = TRUE;
+		
+		// see if ST-237A and if so indicate it in the name
+		if ( m_eCameraType == ST237_CAMERA && gcir.readoutInfo[0].gain >= 0x100 )
+			s += "A";
+		
+		// include any sub-models
+		if ( m_eCameraType == STL_CAMERA ||
+			 m_eCameraType == ST402_CAMERA ||
+			 m_eCameraType == STX_CAMERA ||
+			 m_eCameraType == STT_CAMERA ) {
+			// driver reports STL names as "SBIG ST-L-XXX..."
+			// driver reports ST-402 names as "SBIG ST-XXX..."
+			// driver reports ST-X names as "SBIG STX-XXX..."
+			// driver reports STT names as "SBIG STT-XXX..."
+			p1 = gcir.name + 5;
+			if ( (p2 = strchr(p1,' ')) != NULL ) {
+				*p2 = 0;
+				s = p1;
+			}
+		}
+		if ( isColor )
+			s += "C";
+	}
+	else if ( m_eCameraType == NO_CAMERA )
+		s = "No Camera";
+	else
+		s = "Unknown";
+	return s;
 }
 
 /*
   
  SBIGUnivDrvCommand:
- 
+	 
  Bottleneck function for all calls to the driver that logs
  the command and error. First it activates our handle and
  then it calls the driver.  Activating the handle first
@@ -393,85 +418,88 @@ string CSBIGCam::GetCameraTypeString(void)
  the driver has been opened.
  
 */
-
 PAR_ERROR CSBIGCam::SBIGUnivDrvCommand(short command, void *Params, void *Results)
 {
-  SetDriverHandleParams sdhp;
-  
-  // make sure we have a valid handle to the driver
-  m_eLastCommand = (PAR_COMMAND)command;
-  if ( m_nDrvHandle == INVALID_HANDLE_VALUE )
-    m_eLastError = CE_DRIVER_NOT_OPEN;
-  else
-    {
-      // handle is valid so install it in the driver
-      sdhp.handle = m_nDrvHandle;
-      if ( (m_eLastError = (PAR_ERROR)::SBIGUnivDrvCommand(CC_SET_DRIVER_HANDLE, &sdhp, NULL)) == CE_NO_ERROR )
-	// call the desired command
-	m_eLastError = (PAR_ERROR)::SBIGUnivDrvCommand(command, Params, Results);
-    }
-  if ( m_eLastError != CE_NO_ERROR )
-    m_eLastError = m_eLastError;
-  return m_eLastError;
+	SetDriverHandleParams sdhp;
+	
+	// make sure we have a valid handle to the driver
+	m_eLastCommand = (PAR_COMMAND)command;
+
+	if (m_nDrvHandle == INVALID_HANDLE_VALUE)
+	{
+		m_eLastError = CE_DRIVER_NOT_OPEN;
+	}
+	else
+	{
+		// handle is valid so install it in the driver
+		sdhp.handle = m_nDrvHandle;
+		if ((m_eLastError = (PAR_ERROR)::SBIGUnivDrvCommand(CC_SET_DRIVER_HANDLE, &sdhp, NULL)) == CE_NO_ERROR)
+		{
+			// call the desired command
+			m_eLastError = (PAR_ERROR)::SBIGUnivDrvCommand(command, Params, Results);
+		}
+	}
+
+	return m_eLastError;
 }
 
 /*
   
-  OpenDriver:
-  
-  Open the driver.  Must be made before any other calls and
-  should be called only once per instance of the camera class.
-  Based on the results of the open call to the driver this can
-  open a new handle to the driver.
-  
-  The alternate constructors do this for you when you specify
-  the communications port to use.
-  
+ OpenDriver:
+	 
+ Open the driver.  Must be made before any other calls and
+ should be called only once per instance of the camera class.
+ Based on the results of the open call to the driver this can
+ open a new handle to the driver.
+ 
+ The alternate constructors do this for you when you specify
+ the communications port to use.
+ 
 */
 PAR_ERROR CSBIGCam::OpenDriver()
 {
-  short res;
-  GetDriverHandleResults gdhr;
-  SetDriverHandleParams sdhp;
-  
-  // call the driver directly so doesn't install our handle
-  res = ::SBIGUnivDrvCommand(m_eLastCommand = CC_OPEN_DRIVER, NULL, NULL);
-  if ( res == CE_DRIVER_NOT_CLOSED )
-    {
-      /*
-	the driver is open already which we interpret
-	as having been opened by another instance of
-	the class so get the driver to allocate a new
-	handle and then record it
-      */
-      sdhp.handle = INVALID_HANDLE_VALUE;
-      res = ::SBIGUnivDrvCommand(CC_SET_DRIVER_HANDLE, &sdhp, NULL);
-      if ( res == CE_NO_ERROR ) {
-	res = ::SBIGUnivDrvCommand(CC_OPEN_DRIVER, NULL, NULL);
-	if ( res == CE_NO_ERROR ) {
-	  res = ::SBIGUnivDrvCommand(CC_GET_DRIVER_HANDLE, NULL, &gdhr);
+	short res;
+	GetDriverHandleResults gdhr;
+	SetDriverHandleParams sdhp;
+	
+	// call the driver directly so doesn't install our handle
+	res = ::SBIGUnivDrvCommand(m_eLastCommand = CC_OPEN_DRIVER, NULL, NULL);
+	if ( res == CE_DRIVER_NOT_CLOSED )
+	{
+		/*
+		   the driver is open already which we interpret
+		   as having been opened by another instance of
+		   the class so get the driver to allocate a new
+		   handle and then record it
+		*/
+		sdhp.handle = INVALID_HANDLE_VALUE;
+		res = ::SBIGUnivDrvCommand(CC_SET_DRIVER_HANDLE, &sdhp, NULL);
+		if ( res == CE_NO_ERROR ) {
+			res = ::SBIGUnivDrvCommand(CC_OPEN_DRIVER, NULL, NULL);
+			if ( res == CE_NO_ERROR ) {
+				res = ::SBIGUnivDrvCommand(CC_GET_DRIVER_HANDLE, NULL, &gdhr);
 				if ( res == CE_NO_ERROR )
-				  m_nDrvHandle = gdhr.handle;
+					m_nDrvHandle = gdhr.handle;
+			}
+		}
 	}
-      }
-    }
-  else if ( res == CE_NO_ERROR )
-    {
-      /*
-		  the driver was not open so record the driver handle
-		  so we can support multiple instances of this class
-		  talking to multiple cameras
-      */
-      res = ::SBIGUnivDrvCommand(CC_GET_DRIVER_HANDLE, NULL, &gdhr);
-      if ( res == CE_NO_ERROR )
-	m_nDrvHandle = gdhr.handle;
-    }
-  return m_eLastError = (PAR_ERROR)res;
+	else if ( res == CE_NO_ERROR )
+	{
+		/*
+		   the driver was not open so record the driver handle
+		   so we can support multiple instances of this class
+		   talking to multiple cameras
+		 */
+		res = ::SBIGUnivDrvCommand(CC_GET_DRIVER_HANDLE, NULL, &gdhr);
+		if ( res == CE_NO_ERROR )
+			m_nDrvHandle = gdhr.handle;
+	}
+	return m_eLastError = (PAR_ERROR)res;
 }
 
 /*
   
-  CloseDriver:
+ CloseDriver:
 	 
  Should be called for every call to OpenDriver.
  Standard destructor does this for you as well.
@@ -626,65 +654,106 @@ void CSBIGCam::GetGrabState(GRAB_STATE &grabState, double &percentComplete)
 */
 PAR_ERROR CSBIGCam::GrabSetup(CSBIGImg *pImg, SBIG_DARK_FRAME dark)
 {
-	GetCCDInfoParams gcip;
-	GetCCDInfoResults0 gcir;
-	unsigned short es;
-	string s;
+	GetCCDInfoParams 	gcip;
+	GetCCDInfoResults0 	gcir;
+	unsigned short 		es;
+	string 				s;
 	
 	// Get the image dimensions
-	m_eGrabState = GS_DAWN;
+	m_eGrabState   = GS_DAWN;
 	m_dGrabPercent = 0.0;
 	m_sGrabInfo.vertNBinning = m_uReadoutMode >> 8;
-	if ( m_sGrabInfo.vertNBinning == 0 )
+
+	if (m_sGrabInfo.vertNBinning == 0)
+	{
 		m_sGrabInfo.vertNBinning = 1;
-	m_sGrabInfo.rm = m_uReadoutMode & 0xFF;
+	}
+	m_sGrabInfo.rm   = m_uReadoutMode & 0xFF;
 	m_sGrabInfo.hBin = m_sGrabInfo.vBin = 1;
-	if ( m_eCameraType == STI_CAMERA ) {
-		if ( m_sGrabInfo.rm < 2 )
+
+	if (m_eCameraType == STI_CAMERA)
+	{
+		if (m_sGrabInfo.rm < 2)
+		{
 			m_sGrabInfo.hBin = m_sGrabInfo.vBin = (m_sGrabInfo.rm + 1);
-		else if ( m_sGrabInfo.rm < 4 ) {
+		}
+		else if (m_sGrabInfo.rm < 4)
+		{
 			m_sGrabInfo.hBin = (m_sGrabInfo.rm - 1);
 			m_sGrabInfo.vBin = m_sGrabInfo.vertNBinning;
 		}
-	} else {
-		if ( m_sGrabInfo.rm < 3 )
+	}
+	else
+	{
+		if (m_sGrabInfo.rm < 3)
+		{
 			m_sGrabInfo.hBin = m_sGrabInfo.vBin = (m_sGrabInfo.rm + 1);
-		else if ( m_sGrabInfo.rm < 6 ) {
+		}
+		else if (m_sGrabInfo.rm < 6)
+		{
 			m_sGrabInfo.hBin = (m_sGrabInfo.rm - 5);
 			m_sGrabInfo.vBin = m_sGrabInfo.vertNBinning;
-		} else if ( m_sGrabInfo.rm < 9 )
+		}
+		else if (m_sGrabInfo.rm < 9)
+		{
 			m_sGrabInfo.hBin = m_sGrabInfo.vBin = (m_sGrabInfo.rm - 8);
-		else if ( m_sGrabInfo.rm == 9 )
+		}
+		else if (m_sGrabInfo.rm == 9)
+		{
 			m_sGrabInfo.hBin = m_sGrabInfo.vBin = 9;
+		}
 	}
 	gcip.request = (m_eActiveCCD == CCD_IMAGING ? CCD_INFO_IMAGING : CCD_INFO_TRACKING);
-	if ( SBIGUnivDrvCommand(CC_GET_CCD_INFO, &gcip, &gcir) != CE_NO_ERROR )
+
+	if (SBIGUnivDrvCommand(CC_GET_CCD_INFO, &gcip, &gcir) != CE_NO_ERROR)
+	{
 		return m_eLastError;
-	if ( m_sGrabInfo.rm >= gcir.readoutModes )
+	}
+
+	if (m_sGrabInfo.rm >= gcir.readoutModes)
+	{
 		return CE_BAD_PARAMETER;
-	if ( m_nSubFrameWidth == 0 || m_nSubFrameHeight == 0 ) {
-		m_sGrabInfo.left = m_sGrabInfo.top = 0;
+	}
+
+	if (m_nSubFrameWidth == 0 || m_nSubFrameHeight == 0)
+	{
+		m_sGrabInfo.left  = m_sGrabInfo.top = 0;
 		m_sGrabInfo.width = gcir.readoutInfo[m_sGrabInfo.rm].width;
-		if ( m_eCameraType == STI_CAMERA ) {
-			if ( m_sGrabInfo.rm >= 2 && m_sGrabInfo.rm <= 3 )
+
+		if (m_eCameraType == STI_CAMERA)
+		{
+			if (m_sGrabInfo.rm >= 2 && m_sGrabInfo.rm <= 3)
+			{
 				m_sGrabInfo.height = gcir.readoutInfo[m_sGrabInfo.rm-2].height / m_sGrabInfo.vertNBinning;
+			}
 			else
+			{
 				m_sGrabInfo.height = gcir.readoutInfo[m_sGrabInfo.rm].height / m_sGrabInfo.vertNBinning;
-		} else {
-			if ( m_sGrabInfo.rm >= 3 && m_sGrabInfo.rm <= 5 )
-				m_sGrabInfo.height = gcir.readoutInfo[m_sGrabInfo.rm-3].height / m_sGrabInfo.vertNBinning;
-			else
-				m_sGrabInfo.height = gcir.readoutInfo[m_sGrabInfo.rm].height / m_sGrabInfo.vertNBinning;
+			}
 		}
-	} else {
-		m_sGrabInfo.left = m_nSubFrameLeft;
-		m_sGrabInfo.top = m_nSubFrameTop;
-		m_sGrabInfo.width = m_nSubFrameWidth;
-		m_sGrabInfo.height = m_nSubFrameHeight;
+		else
+		{
+			if (m_sGrabInfo.rm >= 3 && m_sGrabInfo.rm <= 5)
+			{
+				m_sGrabInfo.height = gcir.readoutInfo[m_sGrabInfo.rm-3].height / m_sGrabInfo.vertNBinning;
+			}
+			else
+			{
+				m_sGrabInfo.height = gcir.readoutInfo[m_sGrabInfo.rm].height / m_sGrabInfo.vertNBinning;
+			}
+		}
+	}
+	else
+	{
+		m_sGrabInfo.left 	= m_nSubFrameLeft;
+		m_sGrabInfo.top 	= m_nSubFrameTop;
+		m_sGrabInfo.width 	= m_nSubFrameWidth;
+		m_sGrabInfo.height 	= m_nSubFrameHeight;
 	}
 
 	// try to allocate the image buffer
-	if ( !pImg->AllocateImageBuffer(m_sGrabInfo.height, m_sGrabInfo.width) ) {
+	if (!pImg->AllocateImageBuffer(m_sGrabInfo.height, m_sGrabInfo.width))
+	{
 		m_eGrabState = GS_IDLE;
 		return CE_MEMORY_ERROR;
 	}
@@ -696,23 +765,37 @@ PAR_ERROR CSBIGCam::GrabSetup(CSBIGImg *pImg, SBIG_DARK_FRAME dark)
 	pImg->SetPixelHeight(hex2double(gcir.readoutInfo[m_sGrabInfo.rm].pixelHeight) * m_sGrabInfo.vertNBinning / 1000.0);
 	pImg->SetPixelWidth(hex2double(gcir.readoutInfo[m_sGrabInfo.rm].pixelWidth) / 1000.0);
 	es = ES_DCS_ENABLED | ES_DCR_DISABLED | ES_AUTOBIAS_ENABLED;
-	if ( m_eCameraType == ST5C_CAMERA )
+
+	if (m_eCameraType == ST5C_CAMERA)
+	{
 		es |= (ES_ABG_CLOCKED | ES_ABG_RATE_MED);
-	else if ( m_eCameraType == ST237_CAMERA )
+	}
+	else if (m_eCameraType == ST237_CAMERA)
+	{
 		es |= (ES_ABG_CLOCKED | ES_ABG_RATE_FIXED);
-	else if ( m_eActiveCCD == CCD_TRACKING )
+	}
+	else if (m_eActiveCCD == CCD_TRACKING)
+	{
 		es |= (ES_ABG_CLOCKED | ES_ABG_RATE_MED);
+	}
 	else
+	{
 		es |= ES_ABG_LOW;
+	}
 	pImg->SetExposureState(es);
 	pImg->SetExposureTime(m_dExposureTime);
 	pImg->SetNumberExposures(1);
 	pImg->SetReadoutMode(m_uReadoutMode);
+
 	s = GetCameraTypeString();
-	if ( m_eCameraType == ST5C_CAMERA || ( m_eCameraType == ST237_CAMERA && s.find("ST-237A", 0) == string::npos) )
-	  pImg->SetSaturationLevel(4095);
+	if (m_eCameraType == ST5C_CAMERA || ( m_eCameraType == ST237_CAMERA && s.find("ST-237A", 0) == string::npos))
+	{
+		pImg->SetSaturationLevel(4095);
+	}
 	else
-	  pImg->SetSaturationLevel(65535);
+	{
+		pImg->SetSaturationLevel(65535);
+	}
 	s = gcir.name;
 	pImg->SetCameraModel(s);
 	pImg->SetBinning(m_sGrabInfo.hBin, m_sGrabInfo.vBin);
@@ -730,25 +813,31 @@ PAR_ERROR CSBIGCam::GrabSetup(CSBIGImg *pImg, SBIG_DARK_FRAME dark)
 */
 PAR_ERROR CSBIGCam::GrabMain(CSBIGImg *pImg, SBIG_DARK_FRAME dark)
 {
-	double ccdTemp;
-	time_t curTime;
-	PAR_ERROR err;
-	int i;
-	StartReadoutParams srp;
-	ReadoutLineParams rlp;
-	struct tm *pLT;
-	char cs[80];
-	MY_LOGICAL expComp;
+	int 								i;
+	double 							ccdTemp = 0.0;
+	time_t 							curTime;
+	PAR_ERROR 					err;
+	StartReadoutParams 	srp;
+	ReadoutLineParams 	rlp;
+	struct tm *					pLT;
+	char 								cs[80];
+	MY_LOGICAL 					expComp;
 	
 	// initialize some image header params
-	if ( GetCCDTemperature(ccdTemp) != CE_NO_ERROR )
+	if (GetCCDTemperature(ccdTemp) != CE_NO_ERROR)
+	{
 		return m_eLastError;
-	pImg->SetCCDTemperature(ccdTemp);
+	}
 
+	pImg->SetCCDTemperature(ccdTemp);
+	
 	// end any exposure in case one in progress
 	EndExposure();
-	if ( m_eLastError != CE_NO_ERROR && m_eLastError != CE_NO_EXPOSURE_IN_PROGRESS )
+
+	if (m_eLastError != CE_NO_ERROR && m_eLastError != CE_NO_EXPOSURE_IN_PROGRESS)
+	{
 		return m_eLastError;
+	}
 	
 	// Record the image size incase this is an STX and its needs
 	// the info to start the exposure
@@ -756,77 +845,92 @@ PAR_ERROR CSBIGCam::GrabMain(CSBIGImg *pImg, SBIG_DARK_FRAME dark)
 
 	// start the exposure
 	m_eGrabState = (dark == SBDF_LIGHT_ONLY ? GS_EXPOSING_LIGHT : GS_EXPOSING_DARK);
-
-	//cout << "Starting exposure" << endl;
-	if ( StartExposure(dark == SBDF_LIGHT_ONLY ? SC_OPEN_SHUTTER : SC_CLOSE_SHUTTER) != CE_NO_ERROR )
-	  return m_eLastError;
-
+	
+	if (StartExposure(dark == SBDF_LIGHT_ONLY ? SC_OPEN_SHUTTER : SC_CLOSE_SHUTTER) != CE_NO_ERROR)
+	{
+		return m_eLastError;
+	}
+	
 	curTime = time(NULL);
 	pImg->SetImageStartTime(curTime);
 
 	// wait for exposure to complete
-	//cout << "Waiting for exposure to complete now : " << time(NULL) << ", exptime = " << m_dExposureTime << endl;
-	do {	
-	  m_dGrabPercent = (double)(time(NULL) - curTime)/m_dExposureTime;
-	  //cout << "Percent complete : "<< m_dGrabPercent*100 << "\t%\r";
-	  expo_complete(m_dGrabPercent*100.0);
-	  usleep(m_dExposureTime*1E6/10.0);
-	} while ((err = IsExposureComplete(expComp)) == CE_NO_ERROR && !expComp );
-
-	expo_complete(100.0);
+	do 
+	{
+		m_dGrabPercent = (double)(time(NULL) - curTime)/m_dExposureTime;
+	} 
+	while ((err = IsExposureComplete(expComp)) == CE_NO_ERROR && !expComp );
 	
-	//cout << "Grab  complete" << endl;
 	EndExposure();
-	if ( err != CE_NO_ERROR )
-	  return err;
-	if ( m_eLastError != CE_NO_ERROR )
-	  return m_eLastError;
 
+	if (err != CE_NO_ERROR)
+	{
+		return err;
+	}
+	
+	if (m_eLastError != CE_NO_ERROR)
+	{
+		return m_eLastError;
+	}
+	
 	// readout the CCD
-	srp.ccd = m_eActiveCCD;
-	srp.left = m_sGrabInfo.left;
-	srp.top = m_sGrabInfo.top;
+	srp.ccd    = m_eActiveCCD;
+	srp.left   = m_sGrabInfo.left;
+	srp.top    = m_sGrabInfo.top;
 	srp.height = m_sGrabInfo.height;
-	srp.width = m_sGrabInfo.width;
+	srp.width  = m_sGrabInfo.width;
 	srp.readoutMode = m_uReadoutMode;
 	m_eGrabState = (dark == SBDF_LIGHT_ONLY ? GS_DIGITIZING_LIGHT : GS_DIGITIZING_DARK);
-	if ( (err = StartReadout(srp)) == CE_NO_ERROR ) {
+	
+	if ( (err = StartReadout(srp)) == CE_NO_ERROR ) 
+	{
 		rlp.ccd = m_eActiveCCD;
 		rlp.pixelStart = m_sGrabInfo.left;
 		rlp.pixelLength = m_sGrabInfo.width;
 		rlp.readoutMode = m_uReadoutMode;
-		for (i=0; i<m_sGrabInfo.height && err==CE_NO_ERROR; i++ ) {
-			m_dGrabPercent = (double)(i+1)/m_sGrabInfo.height;
+	
+		for (i = 0; i < m_sGrabInfo.height && err == CE_NO_ERROR; i++)
+		{
+			m_dGrabPercent = (double)(i+1) / m_sGrabInfo.height;
 			err = ReadoutLine(rlp, FALSE, pImg->GetImagePointer() + (long)i * m_sGrabInfo.width);
-			
-			if(! (i%20))
-			  grab_complete(m_dGrabPercent*100.0);
 		}
-		grab_complete(100.0);
 	}
+	
 	EndReadout();
-
-	//cout << "Readout  complete" << endl;
-	if ( err != CE_NO_ERROR )
+	
+	if (err != CE_NO_ERROR)
+	{
 		return err;
-	if ( m_eLastError != CE_NO_ERROR )
+	}
+	
+	if (m_eLastError != CE_NO_ERROR)
+	{
 		return err;
-
+	}
+	
 	// we're done unless we wanted a dark also image
-	if ( dark == SBDF_DARK_ALSO ) {
+	if (dark == SBDF_DARK_ALSO)
+	{
 		// start the light exposure
 		m_eGrabState = GS_EXPOSING_LIGHT;
-		if ( StartExposure(SC_OPEN_SHUTTER) != CE_NO_ERROR )
+
+		if (StartExposure(SC_OPEN_SHUTTER) != CE_NO_ERROR)
+		{
 			return m_eLastError;
+		}
+
 		curTime = time(NULL);
 		pImg->SetImageStartTime(curTime);
 
 		// wait for exposure to complete
-		do {
+		do
+		{
 			m_dGrabPercent = (double)(time(NULL) - curTime)/m_dExposureTime;
-			//cout << "Percent complete : "<< m_dGrabPercent << endl;
-		} while ((err = IsExposureComplete(expComp)) == CE_NO_ERROR && !expComp );
+		}
+		while ((err = IsExposureComplete(expComp)) == CE_NO_ERROR && !expComp );
+
 		EndExposure();
+
 		if ( err != CE_NO_ERROR )
 			return err;
 		if ( m_eLastError != CE_NO_ERROR )
@@ -851,26 +955,37 @@ PAR_ERROR CSBIGCam::GrabMain(CSBIGImg *pImg, SBIG_DARK_FRAME dark)
 			}
 		}
 		EndReadout();
-		if ( err != CE_NO_ERROR )
+		if (err != CE_NO_ERROR)
+		{
 			return err;
-		if ( m_eLastError != CE_NO_ERROR )
+		}
+
+		if (m_eLastError != CE_NO_ERROR)
+		{
 			return err;
+		}
 
 		// record dark subtraction in history
 		m_eGrabState = GS_DUSK;
-		if ( m_eCameraType == ST5C_CAMERA || m_eCameraType == ST237_CAMERA )
+		if (m_eCameraType == ST5C_CAMERA || m_eCameraType == ST237_CAMERA)
+		{
 			pImg->SetHistory("f");
+		}
 		else
+		{
 			pImg->SetHistory("R");
+		}
 	}
 	
 	// set the note to the local time
 	m_eGrabState = GS_DUSK;
-	if ( pImg->GetImageNote().length() == 0 ) {
+
+	if (pImg->GetImageNote().length() == 0)
+	{
 		pLT = localtime(&curTime);
 		sprintf(cs, "Local time:%d/%d/%4d at %d:%02d:%02d",
-			pLT->tm_mon+1, pLT->tm_mday, pLT->tm_year+1900,
-			pLT->tm_hour, pLT->tm_min, pLT->tm_sec);
+				pLT->tm_mon+1, pLT->tm_mday, pLT->tm_year+1900,
+				pLT->tm_hour, pLT->tm_min, pLT->tm_sec);
 		pImg->SetImageNote(cs);
 	}
 	
@@ -893,7 +1008,8 @@ PAR_ERROR CSBIGCam::GrabImage(CSBIGImg *pImg, SBIG_DARK_FRAME dark)
 	pImg->SetImageCanClose(FALSE);
 
 	/* do the Once per image setup */
-	if ( (err = GrabSetup(pImg, dark)) == CE_NO_ERROR ) {
+	if ((err = GrabSetup(pImg, dark)) == CE_NO_ERROR )
+	{
 		/* Grab the image */
 		err = GrabMain(pImg, dark);
 	}
@@ -913,40 +1029,87 @@ PAR_ERROR CSBIGCam::GrabImage(CSBIGImg *pImg, SBIG_DARK_FRAME dark)
 */
 PAR_ERROR CSBIGCam::StartExposure(SHUTTER_COMMAND shutterState)
 {
-	StartExposureParams sep;
-	StartExposureParams2 sep2;
-	unsigned long ulExposure;
+	StartExposureParams 	sep;
+	StartExposureParams2 	sep2;
+	unsigned long 				ulExposure;
 	
-	if ( !CheckLink() )
+	if (!CheckLink())
+	{
 		return m_eLastError;
+	}
 	
 	// For exposures less than 0.01 seconds use millisecond exposures
 	// Note: This assumes the caller has used the GetCCDInfo command
 	//       to insure the camera supports millisecond exposures
-	if ( m_dExposureTime < 0.01 ) {
+	if (m_dExposureTime < 0.01)
+	{
 		ulExposure = (unsigned long)(m_dExposureTime * 1000.0 + 0.5);
-		if ( ulExposure < 1 )
-			ulExposure = 1;
+
+		if (ulExposure < 1)
+		{
+				ulExposure = 1;
+		}
 		ulExposure |= EXP_MS_EXPOSURE;
-	} else {
+	}
+	else
+	{
 		ulExposure = (unsigned long)(m_dExposureTime * 100.0 + 0.5);
-		if ( ulExposure < 1 )
-			ulExposure = 1;		
+		if (ulExposure < 1)
+		{
+			ulExposure = 1;
+		}
 	}
 	
-	if ( m_eCameraType == STX_CAMERA || m_eCameraType == STT_CAMERA ||
-		 m_eCameraType == STI_CAMERA || m_eCameraType == STF8300_CAMERA ) {
-		sep2.ccd = m_eActiveCCD;
-		sep2.exposureTime = ulExposure;
-		sep2.abgState = m_eABGState;
-		sep2.openShutter = shutterState;
-		sep2.top = m_nSubFrameTop;
-		sep2.left = m_nSubFrameLeft;
-		sep2.height = m_nSubFrameHeight;
-		sep2.width = m_nSubFrameWidth;
-		sep2.readoutMode = m_uReadoutMode;
+	if (GetFastReadout())
+	{
+			ulExposure |= EXP_FAST_READOUT;
+	}
+	else
+	{
+			ulExposure &= ~EXP_FAST_READOUT;
+	}
+
+	if (GetDualChannelMode())
+	{
+			ulExposure |= EXP_DUAL_CHANNEL_MODE;
+	}
+	else
+	{
+			ulExposure &= ~EXP_DUAL_CHANNEL_MODE;
+	}
+
+	if (m_eCameraType == STX_CAMERA || m_eCameraType == STT_CAMERA ||
+		  m_eCameraType == STI_CAMERA || m_eCameraType == STF_CAMERA)
+	{
+
+		sep2.ccd 						= m_eActiveCCD;
+		sep2.exposureTime 	= ulExposure;
+		sep2.abgState 			= m_eABGState;
+		sep2.openShutter 		= shutterState;
+		sep2.top 						= m_nSubFrameTop;
+		sep2.left 					= m_nSubFrameLeft;
+		sep2.height 				= m_nSubFrameHeight;
+		sep2.width 					= m_nSubFrameWidth;
+		sep2.readoutMode 		= m_uReadoutMode;
+
+		/*
+		cout << "CSBIGCam::StartExposure2 -------------------------" << endl;
+		cout << "sep2.ccd			: " << sep2.ccd 		<< endl;
+		cout << "sep2.exposureTime	: " << sep2.exposureTime<< endl;
+		cout << "sep2.abgState      : " << sep2.abgState	<< endl;
+		cout << "sep2.openShutter	: " << sep2.openShutter	<< endl;
+		cout << "sep2.top      		: " << sep2.top			<< endl;
+		cout << "sep2.left      	: " << sep2.left		<< endl;
+		cout << "sep2.height      	: " << sep2.height		<< endl;
+		cout << "sep2.width      	: " << sep2.width		<< endl;
+		cout << "sep2.readoutMode	: " << sep2.readoutMode	<< endl;
+		cout << "--------------------------------------------------" << endl;
+		*/
+
 		return SBIGUnivDrvCommand(CC_START_EXPOSURE2, &sep2, NULL);
-	} else {
+	}
+	else
+	{
 		sep.ccd = m_eActiveCCD;
 		sep.exposureTime = ulExposure;
 		sep.abgState = m_eABGState;
@@ -991,13 +1154,19 @@ PAR_ERROR CSBIGCam::IsExposureComplete(MY_LOGICAL &complete)
 	QueryCommandStatusResults qcsr;
 	
 	complete = FALSE;
-	if ( CheckLink() ) {
+	if (CheckLink())
+	{
 		qcsp.command = CC_START_EXPOSURE;
-		if ( SBIGUnivDrvCommand(CC_QUERY_COMMAND_STATUS, &qcsp, &qcsr) == CE_NO_ERROR ) {
-			if ( m_eActiveCCD == CCD_IMAGING )
+		if (SBIGUnivDrvCommand(CC_QUERY_COMMAND_STATUS, &qcsp, &qcsr) == CE_NO_ERROR)
+		{
+			if (m_eActiveCCD == CCD_IMAGING)
+			{
 				complete = (qcsr.status & 0x03) != 0x02;
+			}
 			else
+			{
 				complete = (qcsr.status & 0x0C) != 0x08;
+			}
 		}
 	}
 	return m_eLastError;
@@ -1387,20 +1556,21 @@ double CSBIGCam::ADToDegreesC(unsigned short ad, MY_LOGICAL ccd /* = TRUE */)
 	SetCFWModel:
 	
 	Select and try to query the status for the selected
-	model CFW.  For a serail base CFW-10 the COM port
+	model CFW.  For a serial base CFW-10 the COM port
 	is specified in the second parameter and for all others
 	it is ignored.
 	
 */
 PAR_ERROR CSBIGCam::SetCFWModel(CFW_MODEL_SELECT cfwModel, CFW_COM_PORT comPort /*= CFWPORT_COM1*/)
 {
-	PAR_ERROR res = CE_NO_ERROR;
-	CFWParams cfwp;
+	PAR_ERROR  res = CE_NO_ERROR;
+	CFWParams  cfwp;
 	CFWResults cfwr;
 	
 	// close existing port
 	m_eCFWError = CFWE_NONE;
-	if ( m_eCFWModel != CFWSEL_UNKNOWN ) {
+	if ( m_eCFWModel != CFWSEL_UNKNOWN )
+	{
 		cfwp.cfwModel = m_eCFWModel;
 		cfwp.cfwCommand = CFWC_CLOSE_DEVICE;
 		if ( (res = CFWCommand(cfwp, cfwr)) != CE_NO_ERROR ) {
@@ -1412,12 +1582,14 @@ PAR_ERROR CSBIGCam::SetCFWModel(CFW_MODEL_SELECT cfwModel, CFW_COM_PORT comPort 
 	// take on this model
 	m_eCFWModel = cfwModel;
 	
-	if ( m_eCFWModel != CFWSEL_UNKNOWN ) {
+	if ( m_eCFWModel != CFWSEL_UNKNOWN )
+	{
 		// open new port
 		cfwp.cfwModel = m_eCFWModel;
 		cfwp.cfwCommand = CFWC_OPEN_DEVICE;
 		cfwp.cfwParam1 = comPort;
-		if ( (res = CFWCommand(cfwp, cfwr)) != CE_NO_ERROR ) {
+		if ( (res = CFWCommand(cfwp, cfwr)) != CE_NO_ERROR )
+		{
 			m_eCFWError = (CFW_ERROR)cfwr.cfwError;
 			return m_eLastError = res;
 		}
@@ -1436,7 +1608,7 @@ PAR_ERROR CSBIGCam::SetCFWModel(CFW_MODEL_SELECT cfwModel, CFW_COM_PORT comPort 
 	SetCFWPosition:
 	
 	Send a command to the CFW to position it then return without
-	witing for it to finish moving.
+	waiting for it to finish moving.
 	
 */
 PAR_ERROR CSBIGCam::SetCFWPosition(CFW_POSITION position)
@@ -1445,10 +1617,13 @@ PAR_ERROR CSBIGCam::SetCFWPosition(CFW_POSITION position)
 	CFWParams cfwp;
 	CFWResults cfwr;
 	
-	if ( m_eCFWModel == CFWSEL_UNKNOWN ) {
+	if ( m_eCFWModel == CFWSEL_UNKNOWN )
+	{
 		res = CE_CFW_ERROR;
 		m_eCFWError = CFWE_DEVICE_NOT_OPEN;
-	} else {
+	}
+	else
+	{
 		cfwp.cfwModel = m_eCFWModel;
 		cfwp.cfwCommand = CFWC_GOTO;
 		cfwp.cfwParam1 = position;
@@ -1471,10 +1646,13 @@ PAR_ERROR CSBIGCam::GetCFWPositionAndStatus(CFW_POSITION &position, CFW_STATUS &
 	CFWParams cfwp;
 	CFWResults cfwr;
 	
-	if ( m_eCFWModel == CFWSEL_UNKNOWN ) {
+	if ( m_eCFWModel == CFWSEL_UNKNOWN )
+	{
 		res = CE_CFW_ERROR;
 		m_eCFWError = CFWE_DEVICE_NOT_OPEN;
-	} else {
+	}
+	else
+	{
 		cfwp.cfwModel = m_eCFWModel;
 		cfwp.cfwCommand = CFWC_QUERY;
 		res = CFWCommand(cfwp, cfwr);
@@ -1498,10 +1676,13 @@ PAR_ERROR CSBIGCam::GetCFWMaxPosition(CFW_POSITION &position)
 	CFWParams cfwp;
 	CFWResults cfwr;
 	
-	if ( m_eCFWModel == CFWSEL_UNKNOWN ) {
+	if ( m_eCFWModel == CFWSEL_UNKNOWN )
+	{
 		res = CE_CFW_ERROR;
 		m_eCFWError = CFWE_DEVICE_NOT_OPEN;
-	} else {
+	}
+	else
+	{
 		cfwp.cfwModel = m_eCFWModel;
 		cfwp.cfwCommand = CFWC_GET_INFO;
 		cfwp.cfwParam1 = CFWG_FIRMWARE_VERSION;
@@ -1571,207 +1752,160 @@ static const char *CAMERA_TYPE_NAMES[] = {
 	"ST-4000", "STT", "ST-i", "STF-8300"};
 static const char *AD_RES_NAMES[] = { "Unknown", "12 Bits", "16 Bits"};
 static const char *CFW_NAMES[] = {"Unknown", "External", "Shutter Wheel", "CFW-5C"};
-
 PAR_ERROR CSBIGCam::GetFormattedCameraInfo(string &ciStr, MY_LOGICAL htmlFormat /* = TRUE */)
 {
-  string s, ca, cb, cs, sbr, br, fon, foff;
-  PAR_ERROR res = CE_NO_ERROR;
-  GetCCDInfoParams gcip;
-  GetCCDInfoResults0 gcir0;
-  GetCCDInfoResults2 gcir2;
-  GetCCDInfoResults3 gcir3;
-  GetCCDInfoResults4 gcir4;
-  GetDriverInfoParams gdip;
-  GetDriverInfoResults0 gdir;
-  QueryTemperatureStatusResults qtsr;
-  char c[80];
-  double d;
-  
-  if ( htmlFormat ) {
-    ca = "<TR><TD valign=\"top\">";
-    cb = "</TD></TR>\n";
-    cs = "</TD><TD>";
-    fon = "<b><u>";
-    foff = "</b></u>";
-    sbr = "<TR><TD>&nbsp;</TD><TD></TD></TR>\n";
-    br = "<br>";
-    ciStr = "<TABLE border=\"0\" cellspacing=\"1\" summary = \"\">\n";
-  } else {
-    ca = fon = foff = "";
-    cb = sbr = "\n";
-    br = "\n\t";
-    cs = "\t";
-    ciStr = "";
-  }
-  
-  do {
-    //cout << "Hello ! "<< ciStr << endl;
-    ciStr += ca + fon + "Camera Info:" + foff + cb;
-    // Camera Information
-    gcip.request = CCD_INFO_IMAGING;
-    if ( (res = SBIGUnivDrvCommand(CC_GET_CCD_INFO, &gcip, &gcir0)) != CE_NO_ERROR ){
-      cerr << "Error ccd info"<<endl;
-      break;
-    }
-
-    //cout << "Hello !" << endl;
-    
-
-    if ( gcir0.cameraType >= ST7_CAMERA && gcir0.cameraType <= STF8300_CAMERA ) {
-      s = CAMERA_TYPE_NAMES[gcir0.cameraType - ST7_CAMERA];
-      if ( gcir0.cameraType == ST5C_CAMERA || gcir0.cameraType == ST237_CAMERA ) {
-	gcip.request = CCD_INFO_EXTENDED_5C;
-	if ( (res = SBIGUnivDrvCommand(CC_GET_CCD_INFO, &gcip, &gcir3)) != CE_NO_ERROR ){
-	  cerr << "Error ccd info2"<<endl;
-	  break;
+	string s, ca, cb, cs, sbr, br, fon, foff;
+	PAR_ERROR res = CE_NO_ERROR;
+	GetCCDInfoParams gcip;
+	GetCCDInfoResults0 gcir0;
+	GetCCDInfoResults2 gcir2;
+	GetCCDInfoResults3 gcir3;
+	GetCCDInfoResults4 gcir4;
+	GetDriverInfoParams gdip;
+	GetDriverInfoResults0 gdir;
+	QueryTemperatureStatusResults qtsr;
+	char c[80];
+	double d;
+	
+	if ( htmlFormat ) {
+		ca = "<TR><TD valign=\"top\">";
+		cb = "</TD></TR>\r";
+		cs = "</TD><TD>";
+		fon = "<b><u>";
+		foff = "</b></u>";
+		sbr = "<TR><TD>&nbsp;</TD><TD></TD></TR>\r";
+		br = "<br>";
+		ciStr = "<TABLE border=\"0\" cellspacing=\"1\" summary = \"\">\r";
+	} else {
+		ca = fon = foff = "";
+		cb = sbr = "\r";
+		br = "\r\t";
+		cs = "\t";
+		ciStr = "";
 	}
 	
-	if ( gcir3.adSize == AD_16_BITS )
-	  s += "A";
-      } else {
-	if ( strstr(gcir0.name, "Color") )
-	  s = "Color " + s;
-	gcip.request = CCD_INFO_EXTENDED;
-	if ( (res = SBIGUnivDrvCommand(CC_GET_CCD_INFO, &gcip, &gcir2)) != CE_NO_ERROR ){
-	  cerr << "Error ccd info3"<<endl;
-	  break;
-	}
-	s += (gcir2.imagingABG == ABG_PRESENT) ? " with ABG" : " without ABG";
-      }
-      
-    } else
-      s = "Unknown";
-    
+	do {
+		ciStr += ca + fon + "Camera Info:" + foff + cb;
+		// Camera Information
+		gcip.request = CCD_INFO_IMAGING;
+		if ( (res = SBIGUnivDrvCommand(CC_GET_CCD_INFO, &gcip, &gcir0)) != CE_NO_ERROR )
+			break;
+		if ( gcir0.cameraType >= ST7_CAMERA && gcir0.cameraType <= STF_CAMERA ) {
+			s = CAMERA_TYPE_NAMES[gcir0.cameraType - ST7_CAMERA];
+			if ( gcir0.cameraType == ST5C_CAMERA || gcir0.cameraType == ST237_CAMERA ) {
+				gcip.request = CCD_INFO_EXTENDED_5C;
+				if ( (res = SBIGUnivDrvCommand(CC_GET_CCD_INFO, &gcip, &gcir3)) != CE_NO_ERROR )
+						break;
+				if ( gcir3.adSize == AD_16_BITS )
+					s += "A";
+			} else {
+				if ( strstr(gcir0.name, "Color") )
+					s = "Color " + s;
+				gcip.request = CCD_INFO_EXTENDED;
+				if ( (res = SBIGUnivDrvCommand(CC_GET_CCD_INFO, &gcip, &gcir2)) != CE_NO_ERROR )
+					break;
+				s += (gcir2.imagingABG == ABG_PRESENT) ? " with ABG" : " without ABG";
+			}
+			
+		} else
+			s = "Unknown";
+		ciStr += ca + "Camera Type:" + cs + s + cb;
+		ciStr += ca + "Camera Name:" + cs + gcir0.name + cb;
+		d = hex2double(gcir0.firmwareVersion);
+		sprintf(c, "%1.2lf", d);
+		ciStr += ca + "Firmware Version:" + cs + c + cb;
+		gcip.request = CCD_INFO_EXTENDED;
+		if ( gcir0.cameraType != ST5C_CAMERA && gcir0.cameraType != ST237_CAMERA )
+			ciStr += ca + "Serial Number:" + cs + gcir2.serialNumber + cb;
+		if ( gcir0.cameraType == ST5C_CAMERA || gcir0.cameraType == ST237_CAMERA ) {
+			if ( gcir3.adSize > AD_16_BITS ) gcir3.adSize = AD_UNKNOWN;
+			ciStr += ca + "A/D Resolution:" + cs + AD_RES_NAMES[gcir3.adSize] + cb;
+			if ( gcir3.filterType > FW_FILTER_WHEEL ) gcir3.filterType = FW_UNKNOWN;
+			ciStr += ca + "Internal CFW:" + cs + CFW_NAMES[gcir3.filterType] + cb;
+		} else
+			ciStr += ca + "A/D Resolution:" + cs + "16 Bits" + cb;
+			
+		gcip.request = CCD_INFO_EXTENDED2_TRACKING;
+		if ( (res = SBIGUnivDrvCommand(CC_GET_CCD_INFO, &gcip, &gcir4)) == CE_NO_ERROR )
+		{
+			sprintf(c, "%s", gcir4.capabilitiesBits & CB_CCD_EXT_TRACKER_MASK ? "Can be used" : "Doesn't Support");
+			ciStr += ca + "External Tracker:" + cs + c + cb;
+		}
 
-    //cout << "Hello !!!!" << endl;
+		// CCD Temperature
+		if ( (res = GetCCDTemperature(d)) != CE_NO_ERROR )
+			break;
+		sprintf(c,"%1.2lf Degrees C", d);
+		ciStr += ca + "CCD Temperature:" + cs + c + cb;		
 
-    ciStr += ca + "Camera Type:" + cs + s + cb;
-    ciStr += ca + "Camera Name:" + cs + gcir0.name + cb;
-    d = hex2double(gcir0.firmwareVersion);
-    sprintf(c, "%1.2lf", d);
-    ciStr += ca + "Firmware Version:" + cs + c + cb;
-    gcip.request = CCD_INFO_EXTENDED;
-    if ( gcir0.cameraType != ST5C_CAMERA && gcir0.cameraType != ST237_CAMERA )
-      ciStr += ca + "Serial Number:" + cs + gcir2.serialNumber + cb;
-    if ( gcir0.cameraType == ST5C_CAMERA || gcir0.cameraType == ST237_CAMERA ) {
-      if ( gcir3.adSize > AD_16_BITS ) gcir3.adSize = AD_UNKNOWN;
-      ciStr += ca + "A/D Resolution:" + cs + AD_RES_NAMES[gcir3.adSize] + cb;
-      if ( gcir3.filterType > FW_FILTER_WHEEL ) gcir3.filterType = FW_UNKNOWN;
-      ciStr += ca + "Internal CFW:" + cs + CFW_NAMES[gcir3.filterType] + cb;
-    } else
-      ciStr += ca + "A/D Resolution:" + cs + "16 Bits" + cb;
-    
-    gcip.request = CCD_INFO_EXTENDED2_TRACKING;
-    if ( (res = SBIGUnivDrvCommand(CC_GET_CCD_INFO, &gcip, &gcir4)) == CE_NO_ERROR )
-      {
-	sprintf(c, "%s", gcir4.capabilitiesBits & CB_CCD_EXT_TRACKER_MASK ? "Can be used" : "Doesn't Support");
-	ciStr += ca + "External Tracker:" + cs + c + cb;
-      }else{
-      //cout << "Error ici !! !" << endl;
-      res = CE_NO_ERROR;
-    }
+		// Ambient Temperature
+		if ( (res = SBIGUnivDrvCommand(CC_QUERY_TEMPERATURE_STATUS, NULL, &qtsr)) != CE_NO_ERROR )
+			break;
+		sprintf(c,"%1.2lf Degrees C", ADToDegreesC(qtsr.ambientThermistor, FALSE));
+		ciStr += ca + "Ambient Temp.:" + cs + c + cb;
+		
+		// Imager Readout Info
+		ciStr += sbr + ca +  fon + "Imaging CCD:" + foff + cs + cb;
+		sprintf(c, "%d x %d", gcir0.readoutInfo[0].width, gcir0.readoutInfo[0].height);
+		ciStr += ca + "Number of Pixels:" + cs + c + cb;
+		sprintf(c, "%1.2lf x %1.2lf microns", hex2double(gcir0.readoutInfo[0].pixelWidth),
+			hex2double(gcir0.readoutInfo[0].pixelHeight));
+		ciStr += ca + "Pixel Size:" + cs + c + cb;
+		sprintf(c, "%1.2lf e-/ADU", hex2double(gcir0.readoutInfo[0].gain));
+		ciStr += ca + "Electronic Gain:" + cs + c + cb;
+		gcip.request = CCD_INFO_EXTENDED2_IMAGING;
+		if ( (res = SBIGUnivDrvCommand(CC_GET_CCD_INFO, &gcip, &gcir4)) != CE_NO_ERROR )
+			break;
+		sprintf(c,"%s", gcir4.capabilitiesBits & CB_CCD_TYPE_MASK ? "Frame Transfer CCD" : "Full Frame CCD");
+		ciStr += ca + "CCD Type:" + cs + c + cb;
+		sprintf(c, "%s", gcir4.capabilitiesBits & CB_CCD_ESHUTTER_MASK ? "Yes, Supports ms Exposures" : "No");
+		ciStr += ca + "Electronic Shutter:" + cs + c + cb;
+		sprintf(c, "%s", gcir4.capabilitiesBits & CB_FRAME_BUFFER_MASK ? "Yes, Camera has Frame Buffer" : "No");
+		ciStr += ca + "Frame Buffer:" + cs + c + cb;
 
-
-
-    
-    // CCD Temperature
-    if ( (res = GetCCDTemperature(d)) != CE_NO_ERROR ){
-      cerr << "Error ccd temp"<<endl;
-      break;
-    }
-    sprintf(c,"%1.2lf Degrees C", d);
-    ciStr += ca + "CCD Temperature:" + cs + c + cb;		
-
-
-    
-    // Ambient Temperature
-    if ( (res = SBIGUnivDrvCommand(CC_QUERY_TEMPERATURE_STATUS, NULL, &qtsr)) != CE_NO_ERROR ){
-      cerr << "Error ccd temp2"<<endl;
-      break;
-    }
-    sprintf(c,"%1.2lf Degrees C", ADToDegreesC(qtsr.ambientThermistor, FALSE));
-    ciStr += ca + "Ambient Temp.:" + cs + c + cb;
-    
-    // Imager Readout Info
-    ciStr += sbr + ca +  fon + "Imaging CCD:" + foff + cs + cb;
-    sprintf(c, "%d x %d", gcir0.readoutInfo[0].width, gcir0.readoutInfo[0].height);
-    ciStr += ca + "Number of Pixels:" + cs + c + cb;
-    sprintf(c, "%1.2lf x %1.2lf microns", hex2double(gcir0.readoutInfo[0].pixelWidth),
-	    hex2double(gcir0.readoutInfo[0].pixelHeight));
-    ciStr += ca + "Pixel Size:" + cs + c + cb;
-    sprintf(c, "%1.2lf e-/ADU", hex2double(gcir0.readoutInfo[0].gain));
-    ciStr += ca + "Electronic Gain:" + cs + c + cb;
-    gcip.request = CCD_INFO_EXTENDED2_IMAGING;
-    if ( (res = SBIGUnivDrvCommand(CC_GET_CCD_INFO, &gcip, &gcir4)) != CE_NO_ERROR ){
-      //cout << "Erreur encore ici !! !" << endl;
-      break;
-    }
-    sprintf(c,"%s", gcir4.capabilitiesBits & CB_CCD_TYPE_MASK ? "Frame Transfer CCD" : "Full Frame CCD");
-    ciStr += ca + "CCD Type:" + cs + c + cb;
-    sprintf(c, "%s", gcir4.capabilitiesBits & CB_CCD_ESHUTTER_MASK ? "Yes, Supports ms Exposures" : "No");
-    ciStr += ca + "Electronic Shutter:" + cs + c + cb;
-    sprintf(c, "%s", gcir4.capabilitiesBits & CB_FRAME_BUFFER_MASK ? "Yes, Camera has Frame Buffer" : "No");
-    ciStr += ca + "Frame Buffer:" + cs + c + cb;
-    
-    // Tracker Readout Indo
-    gcip.request = CCD_INFO_TRACKING;
-    if ( (res = SBIGUnivDrvCommand(CC_GET_CCD_INFO, &gcip, &gcir0)) == CE_NO_ERROR ) {
-      ciStr += sbr + ca + fon + "Tracking CCD:" + cs + cb;
-      sprintf(c, "%d x %d", gcir0.readoutInfo[0].width, gcir0.readoutInfo[0].height);
-      ciStr += ca + "Number of Pixels:" + cs + c + cb;
-      sprintf(c, "%1.2lf x %1.2lf microns", hex2double(gcir0.readoutInfo[0].pixelWidth),
-	      hex2double(gcir0.readoutInfo[0].pixelHeight));
-      ciStr += ca + "Pixel Size:" + cs + c + cb;
-      sprintf(c, "%1.2lf e-/ADU", hex2double(gcir0.readoutInfo[0].gain));
-      ciStr += ca + "Electronic Gain:" + cs + c + cb;
-      gcip.request = CCD_INFO_EXTENDED2_TRACKING;
-      if ( (res = SBIGUnivDrvCommand(CC_GET_CCD_INFO, &gcip, &gcir4)) != CE_NO_ERROR ){
-	cerr << "Error ccd info7"<<endl;
-	break;
-      }
-      sprintf(c,"%s", gcir4.capabilitiesBits & CB_CCD_TYPE_MASK ? "Frame Transfer CCD" : "Full Frame CCD");
-      ciStr += ca + "CCD Type:" + cs + c + cb;
-      sprintf(c, "%s", gcir4.capabilitiesBits & CB_CCD_ESHUTTER_MASK ? "Yes, Supports ms Exposures" : "No");
-      ciStr += ca + "Electronic Shutter:" + cs + c + cb;
-      sprintf(c, "%s", gcir4.capabilitiesBits & CB_FRAME_BUFFER_MASK ? "Yes, Camera has Frame Buffer" : "No");
-      ciStr += ca + "Frame Buffer:" + cs + c + cb;
-
-      //cout << "Hello c'est passé!" << endl;
-    }
-
-    //cout << "Hello ! ICICICI" << endl;
-    
-    // Driver information
-    ciStr += sbr + ca + fon + "Driver Info:" + cs + cb;
-    gdip.request = DRIVER_STD;
-    if ( (res = SBIGUnivDrvCommand(CC_GET_DRIVER_INFO, &gdip, &gdir)) != CE_NO_ERROR ){
-      cerr << "Error driver info"<<endl;
-      break;
-    }
-    sprintf(c,"Version %1.2lf", hex2double(gdir.version));
-    ciStr += ca + "Driver Info:" + cs + gdir.name + br + c + cb;
-    gdip.request = DRIVER_EXTENDED;
-    if ( (res = SBIGUnivDrvCommand(CC_GET_DRIVER_INFO, &gdip, &gdir)) != CE_NO_ERROR ){
-      cerr << "Error driver info 2"<<endl;
-      break;
-    }
-
-    //cout << "Hello??? str=["<< ciStr<<"]" << endl;
-
-    sprintf(c,"Version %1.2lf", hex2double(gdir.version));
-    ciStr += ca + "Ext. Driver Info:" + cs + gdir.name + br + c + cb;
-    gdip.request = DRIVER_USB_LOADER;
-    if ( (res = SBIGUnivDrvCommand(CC_GET_DRIVER_INFO, &gdip, &gdir)) == CE_NO_ERROR ) {
-      sprintf(c,"Version %1.2lf", hex2double(gdir.version));
-      ciStr += ca + "USB Loader Info:" + cs + gdir.name + br + c + cb;
-    }//else
-      //cout << "Hello raté !!!" << endl;
-
-
-    ciStr += ca + "SBIGCam Class:" + cs + "Version " + VERSION_STR + cb;
-  } while ( FALSE );
-  if ( htmlFormat )
-    ciStr += "</TABLE>";
-  return m_eLastError = res;
+		// Tracker Readout Indo
+		gcip.request = CCD_INFO_TRACKING;
+		if ( (res = SBIGUnivDrvCommand(CC_GET_CCD_INFO, &gcip, &gcir0)) == CE_NO_ERROR ) {
+			ciStr += sbr + ca + fon + "Tracking CCD:" + cs + cb;
+			sprintf(c, "%d x %d", gcir0.readoutInfo[0].width, gcir0.readoutInfo[0].height);
+			ciStr += ca + "Number of Pixels:" + cs + c + cb;
+			sprintf(c, "%1.2lf x %1.2lf microns", hex2double(gcir0.readoutInfo[0].pixelWidth),
+				hex2double(gcir0.readoutInfo[0].pixelHeight));
+			ciStr += ca + "Pixel Size:" + cs + c + cb;
+			sprintf(c, "%1.2lf e-/ADU", hex2double(gcir0.readoutInfo[0].gain));
+			ciStr += ca + "Electronic Gain:" + cs + c + cb;
+			gcip.request = CCD_INFO_EXTENDED2_TRACKING;
+			if ( (res = SBIGUnivDrvCommand(CC_GET_CCD_INFO, &gcip, &gcir4)) != CE_NO_ERROR )
+				break;
+			sprintf(c,"%s", gcir4.capabilitiesBits & CB_CCD_TYPE_MASK ? "Frame Transfer CCD" : "Full Frame CCD");
+			ciStr += ca + "CCD Type:" + cs + c + cb;
+			sprintf(c, "%s", gcir4.capabilitiesBits & CB_CCD_ESHUTTER_MASK ? "Yes, Supports ms Exposures" : "No");
+			ciStr += ca + "Electronic Shutter:" + cs + c + cb;
+			sprintf(c, "%s", gcir4.capabilitiesBits & CB_FRAME_BUFFER_MASK ? "Yes, Camera has Frame Buffer" : "No");
+			ciStr += ca + "Frame Buffer:" + cs + c + cb;
+		}
+				
+		// Driver information
+		ciStr += sbr + ca + fon + "Driver Info:" + cs + cb;
+		gdip.request = DRIVER_STD;
+		if ( (res = SBIGUnivDrvCommand(CC_GET_DRIVER_INFO, &gdip, &gdir)) != CE_NO_ERROR )
+			break;
+		sprintf(c,"Version %1.2lf", hex2double(gdir.version));
+		ciStr += ca + "Driver Info:" + cs + gdir.name + br + c + cb;
+		gdip.request = DRIVER_EXTENDED;
+		if ( (res = SBIGUnivDrvCommand(CC_GET_DRIVER_INFO, &gdip, &gdir)) != CE_NO_ERROR )
+			break;
+		sprintf(c,"Version %1.2lf", hex2double(gdir.version));
+		ciStr += ca + "Ext. Driver Info:" + cs + gdir.name + br + c + cb;
+		gdip.request = DRIVER_USB_LOADER;
+		if ( (res = SBIGUnivDrvCommand(CC_GET_DRIVER_INFO, &gdip, &gdir)) == CE_NO_ERROR ) {
+			sprintf(c,"Version %1.2lf", hex2double(gdir.version));
+			ciStr += ca + "USB Loader Info:" + cs + gdir.name + br + c + cb;
+		}
+		ciStr += ca + "SBIGCam Class:" + cs + "Version " + VERSION_STR + cb;
+	} while ( FALSE );
+	if ( htmlFormat )
+		ciStr += "</TABLE>";
+	return m_eLastError = res;
 }
 

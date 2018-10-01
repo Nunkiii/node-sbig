@@ -56,6 +56,7 @@ namespace sadira{
   void sbig::New(const FunctionCallbackInfo<Value>& args){
 
     Isolate* isolate = args.GetIsolate();
+    Local<Context> context = isolate->GetCurrentContext();
     
     if (args.IsConstructCall()) {
       
@@ -76,9 +77,12 @@ namespace sadira{
       
       Local<Function> jsu_cons = Local<Function>::New(isolate, jsmat<unsigned short>::constructor);
       Local<Function> jsf_cons = Local<Function>::New(isolate, jsmat<float>::constructor);
+
+      Local<Object> last_image =jsu_cons->NewInstance(context).ToLocalChecked();
+      Local<Object> last_image_float =jsf_cons->NewInstance(context).ToLocalChecked();
       
-      args.This()->Set(String::NewFromUtf8(isolate,"last_image"), jsu_cons->NewInstance());
-      args.This()->Set(String::NewFromUtf8(isolate,"last_image_float"), jsf_cons->NewInstance());
+      args.This()->Set(String::NewFromUtf8(isolate,"last_image"), last_image);
+      args.This()->Set(String::NewFromUtf8(isolate,"last_image_float"), last_image_float);
       obj->Wrap(args.This());
       
       
@@ -89,8 +93,10 @@ namespace sadira{
     }else{
       const int argc = 1;
       Local<Value> argv[argc] = { args[0] };
+      
       Local<Function> cons = Local<Function>::New(isolate, constructor);
-      args.GetReturnValue().Set(cons->NewInstance(argc, argv));
+      Local<Object> result =cons->NewInstance(context,argc,argv).ToLocalChecked();
+      args.GetReturnValue().Set(result);
 
     }
 
@@ -117,8 +123,8 @@ namespace sadira{
       return;
     }
 
-    short unsigned int cooling_enabled=args[0]->ToNumber()->Value();
-    double setpoint=args[1]->ToNumber()->Value();
+    short unsigned int cooling_enabled=args[0]->NumberValue();
+    double setpoint=args[1]->NumberValue();
     PAR_ERROR res = CE_NO_ERROR;
 
     if ( (res = cam->SetTemperatureRegulation(cooling_enabled, setpoint) ) != CE_NO_ERROR ){
@@ -280,16 +286,17 @@ namespace sadira{
 
   void sbig::start_exposure_func(const FunctionCallbackInfo<Value>& args){
     Isolate* isolate = args.GetIsolate();
-
+    Local<Context> context = isolate->GetCurrentContext();
+    
     sbig* obj = ObjectWrap::Unwrap<sbig>(args.This());
     //obj->cb = Local<Function>::Cast(args[0]);    
     Local<Function> cb=Local<Function>::Cast(args[0]);
     
     Handle<Value> fff=args.This()->Get(String::NewFromUtf8(isolate, "exptime"));
-    obj->exptime = fff->ToNumber()->Value();
+    obj->exptime = fff->NumberValue();
 
     fff=args.This()->Get(String::NewFromUtf8(isolate, "nexpo"));
-    obj->nexpo = fff->ToNumber()->Value();
+    obj->nexpo = fff->NumberValue();
 
     send_status(isolate, cb,"info","Initializing exposure...","expo_proc");
 
@@ -367,8 +374,8 @@ namespace sadira{
 	  
 	  //cout << "JSM empty ? " << jsm.IsEmpty() << endl;
 	  Local<Function> jsu_cons = Local<Function>::New(isolate, jsmat<unsigned short>::constructor);
-	  
-	  Handle<Value> jsm =jsu_cons->NewInstance();	  
+	  Local<Object> jsm =jsu_cons->NewInstance(context).ToLocalChecked();
+	  //	  Handle<Value> jsm =jsu_cons->NewInstance();	  
 	  Handle<Object> jsmo = Handle<Object>::Cast(jsm);
 	  
 	  //cout << "JSMO empty ? " << jsmo.IsEmpty() << endl;
@@ -515,7 +522,8 @@ namespace sadira{
 
     MINFO << "Connecting to camera ..." << endl;
 
-    pcam = new sbig_cam(this, DEV_USB1);
+    //pcam = new sbig_cam(this, DEV_USB1);
+    pcam = new sbig_cam(this, DEV_USB);
     
     check_error();
   
@@ -688,8 +696,13 @@ namespace sadira{
 
       new_event.lock();
       event_id=11;
-      last_image.redim(pImg->m_nWidth, pImg->m_nHeight);    
-      last_image.rawcopy(pImg->m_pImage,last_image.dim);
+      last_image.redim(pImg->GetWidth(), pImg->GetHeight());    
+      last_image.rawcopy(pImg->GetImagePointer(),last_image.dim);
+
+      for(int k=0;k<20;k++){
+	printf("%d %d\n",k, last_image[k]);
+      }
+
       
       //      MINFO << " OK. last image width is "<< last_image.dims[0] << endl;
       new_event.broadcast();
