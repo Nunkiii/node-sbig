@@ -7,23 +7,27 @@ This C++/javascript library is in early developement phase.
 
 The `node-sbig` module compiles on GNU/Linux with g++. `node-gyp` is used as building tool. Other platforms have not been tested yet.
 
-You will need to install the development versions of `libpng` and `libcfitsio` (called respectively `libpng12-dev` and `libcfitsio3-dev` on debian systems). 
-
-On Debian-like systems,
-
-    #apt-get install node node-gyp g++ libpng-dev libcfitsio3-dev
-
+You will need to install the development versions of `libpng` and `libcfitsio` (called respectively `libpng-dev` and `libcfitsio-dev` on debian systems). 
 
 The `libsbigudrv.so` SBIG proprietary library driver and the camera firmware must be correctly installed on your system and the camera clearly identified (`lsusb` to check). 
 
+On Debian-like systems to install node (for example):
+
+    #apt-get install node node-gyp 
+    
+And to install dependecies:
+    
+    g++ libpng-dev libcfitsio-dev libusb-1.0-0-dev libsbigudrv-dev
    
 You will need the `node-fits` plugin source code on the same directory as this module for the compilation to succeed. In the node-sbig directory, the following commands should then build the module:
-
 
     $node-gyp configure
     $node-gyp build
     
+or let `npm` do it:
 
+    npm -f install
+    
 ### Testing
 
 The test.js file, in the node-sbig/test directory 
