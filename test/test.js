@@ -16,7 +16,7 @@ cam.initialize(function (init_message){
 	var expo_counter=0;
 
 	cam.exptime=.5
-	cam.nexpo=1;
+	cam.nexpo=2;
 
 	console.log("Cam cooling info = " + JSON.stringify(cam.get_temp()));
 
@@ -34,17 +34,11 @@ cam.initialize(function (init_message){
 		var fifi=new fits.file; //("test_"+(expo_counter++)+".fits");
 		fifi.file_name="test_"+(expo_counter++)+".fits";
 		
-
-
 		console.log("New image ! w= " + img.width() + " h= " + img.height() + " writing in file " + fifi.file_name );
-
-
 		
-
-		
-		var out = fs.createWriteStream("big.jpeg");
-		//out.write(img.tile( { tile_coord :  [0,0], zoom :  0, tile_size : [256,256], type : "jpeg" }));
-		out.end();
+//		var out = fs.createWriteStream("big.jpeg");
+//		out.write(img.tile( { tile_coord :  [0,0], zoom :  0, tile_size : [256,256], type : "jpeg" }));
+//		out.end();
 		
 		fifi.write_image_hdu(img);
 
@@ -52,7 +46,6 @@ cam.initialize(function (init_message){
 		    if(r!==undefined)
 			console.log("Set hdu key error : " + JSON.stringify(r));
 		});
-		
 		
 		var fifi_float=new fits.file; //("test_"+(expo_counter++)+".fits");
 		fifi_float.file_name="test_"+(expo_counter++)+"_float.fits";
@@ -73,7 +66,7 @@ cam.initialize(function (init_message){
 
 		//Trying temperature regulation ...
 
-		cam.set_temp(1, -1.0);
+		cam.set_temp(1, -10.0);
 
 		var ns=0;
 		var iv=setInterval(function(){
@@ -90,24 +83,20 @@ cam.initialize(function (init_message){
 			
 		    }
 		    
-		}, 1000);
-		
+		}, 1000);		
 
 	    }
 	    
 	    if(expo_message.type=="error"){		
 		console.log("Error : " + expo_message.content + "");
 	    }
-	    
+ 	    
 	});
 	
-	//console.log("After start exposure...");
-	
-
-
+	console.log("After start exposure...");
 
     }else
 	console.log("Camera init error : " + init_message.content );
 });
 
-//console.log("END of test.js");
+console.log("END of test.js");

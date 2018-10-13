@@ -1,0 +1,93 @@
+antola@orsa-fork:~/Public/node-sbig/test$ node ./test.js 
+Init sbig c++ plugin...
+Init sbig done 
+Init : {"type":"info","content":"Initializing camera...","id":"init"}
+Camera init error : Initializing camera...
+(I)     ../src/sbigcam.cpp,523  initialize      Connecting to camera ...
+(I)     ../src/sbigcam.cpp,536  initialize      Connected to camera ...
+(I)     ../src/sbigcam.cpp,558  initialize      Connected to camera : [STL-11000] cam info = []
+(I)     ../src/sbigcam.cpp,559  initialize      CCD Temperature regulation : ON, setpoint = -19.9771 °C. Current CCD temperature =  -20.4176 °C. Cooling power : 0.733333%.
+Init : {"type":"success","content":"Camera is ready","id":"init"}
+Camera is ready --> starting exposure.
+Cam cooling info = {"cooling":1,"cooling_setpoint":-19.977100736655856,"cooling_power":0.7333333333333333,"ccd_temp":-20.41762134544745,"ambient_temp":25}
+EXPO msg : {"type":"info","content":"Initializing exposure...","id":"expo_proc"}
+EXPO msg : {"type":"info","content":"Exposure started!","id":"expo_proc"}
+0 1870
+1 1882
+2 1868
+3 1854
+4 1884
+5 1823
+6 1841
+7 1846
+8 1865
+9 1904
+10 1859
+11 1840
+12 1875
+13 1884
+14 1856
+15 1849
+16 1880
+17 1867
+18 1850
+19 1852
+(I)     ../src/sbigcam.cpp,404  start_exposure_func     Copy float image DIMS 4008, 2672
+EXPO msg : {"type":"new_image","content":{},"id":"expo_proc"}
+New image ! w= 4008 h= 2672 writing in file test_0.fits
+(I)     ../fits/fits.cpp,65     open_file       Opening File name [test_0.fits] mode 1
+(I)     ../fits/fits.hh,159     write_image     writing image types=20, 20
+(I)     ../fits/fits.cpp,65     open_file       Opening File name [test_0.fits] mode 2
+(I)     ../fits/fits.cpp,65     open_file       Opening File name [test_1_float.fits] mode 1
+(I)     ../fits/fits.hh,159     write_image     writing image types=20, 20
+Wrote FITS !
+(I)     ../../node-fits/math/jsmat.hh,557       get_data        DataCheck 1870, 1747
+Image float data : T object L 42837504 0= [1870]
+Image float data : T object L 42837504 1= [1882]
+Image float data : T object L 42837504 last= [1747]
+0 1909
+1 1863
+2 1849
+3 1830
+4 1851
+5 1894
+6 1897
+7 1882
+8 1861
+9 1865
+10 1859
+11 1912
+12 1837
+13 1862
+14 1826
+15 1879
+16 1876
+17 1878
+18 1813
+19 1867
+(I)     ../src/sbigcam.cpp,404  start_exposure_func     Copy float image DIMS 4008, 2672
+EXPO msg : {"type":"new_image","content":{},"id":"expo_proc"}
+New image ! w= 4008 h= 2672 writing in file test_2.fits
+(I)     ../fits/fits.cpp,65     open_file       Opening File name [test_2.fits] mode 1
+(I)     ../fits/fits.hh,159     write_image     writing image types=20, 20
+(I)     ../fits/fits.cpp,65     open_file       Opening File name [test_2.fits] mode 2
+(I)     ../fits/fits.cpp,65     open_file       Opening File name [test_3_float.fits] mode 1
+(I)     ../fits/fits.hh,159     write_image     writing image types=20, 20
+Wrote FITS !
+(I)     ../../node-fits/math/jsmat.hh,557       get_data        DataCheck 1909, 1789
+Image float data : T object L 42837504 0= [1909]
+Image float data : T object L 42837504 1= [1863]
+Image float data : T object L 42837504 last= [1789]
+EXPO msg : {"type":"success","content":"Exposure done","id":"expo_proc"}
+After start exposure...
+END of test.js
+NS= 0 Cam temperature = {"cooling":1,"cooling_setpoint":-9.787817267811569,"cooling_power":0.1450980392156863,"ccd_temp":-19.977100736655856,"ambient_temp":25}
+NS= 1 Cam temperature = {"cooling":1,"cooling_setpoint":-9.787817267811569,"cooling_power":0.1450980392156863,"ccd_temp":-19.977100736655856,"ambient_temp":25}
+NS= 2 Cam temperature = {"cooling":1,"cooling_setpoint":-9.787817267811569,"cooling_power":0.17254901960784313,"ccd_temp":-19.53834753626709,"ambient_temp":25}
+NS= 3 Cam temperature = {"cooling":1,"cooling_setpoint":-9.787817267811569,"cooling_power":0.16862745098039217,"ccd_temp":-19.101291279870587,"ambient_temp":25}
+undefined --> cam shutdown ...
+(I)     ../src/sbigcam.cpp,487  shutdown        Waiting for end of operations..
+(I)     ../src/sbigcam.cpp,496  shutdown        Closing cam devices..
+(I)     ../src/sbigcam.cpp,505  shutdown        Closing cam devices..done 
+(I)     ../src/sbigcam.cpp,509  shutdown        pcam pointer deleted 
+antola@orsa-fork:~/Public/node-sbig/test$ 

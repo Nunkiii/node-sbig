@@ -1,0 +1,100 @@
+indy@snoopy:~/git/node-sbig/test$ node test.js 
+Init sbig c++ plugin...
+Init sbig done 
+Init : {"type":"info","content":"Initializing camera...","id":"init"}
+Camera init error : Initializing camera...
+(I)	../src/sbigcam.cpp,523	initialize	Connecting to camera ...
+(I)	../src/sbigcam.cpp,536	initialize	Connected to camera ...
+(I)	../src/sbigcam.cpp,558	initialize	Connected to camera : [STL-11000] cam info = []
+(I)	../src/sbigcam.cpp,559	initialize	CCD Temperature regulation : ON, setpoint = -0.651815 °C. Current CCD temperature =  -0.651815 °C. Cooling power : 0.247059%.
+Init : {"type":"success","content":"Camera is ready","id":"init"}
+Camera is ready --> starting exposure.
+Cam cooling info = {"cooling":1,"cooling_setpoint":-0.6518153424969313,"cooling_power":0.24705882352941178,"ccd_temp":-0.6518153424969313,"ambient_temp":25}
+EXPO msg : {"type":"info","content":"Initializing exposure...","id":"expo_proc"}
+EXPO msg : {"type":"info","content":"Exposure started!","id":"expo_proc"}
+0 1046
+1 1034
+2 1032
+3 1060
+4 1020
+5 1009
+6 1025
+7 1036
+8 1038
+9 1002
+10 1022
+11 1018
+12 988
+13 1023
+14 1029
+15 1021
+16 1019
+17 1034
+18 1041
+19 1004
+(I)	../src/sbigcam.cpp,404	start_exposure_func	Copy float image DIMS 4008, 2672
+EXPO msg : {"type":"new_image","content":{},"id":"expo_proc"}
+New image ! w= 4008 h= 2672 writing in file test_0.fits
+(I)	../fits/fits.cpp,65	open_file	Opening File name [test_0.fits] mode 1
+(I)	../fits/fits.hh,159	write_image	writing image types=20, 20
+(I)	../fits/fits.cpp,65	open_file	Opening File name [test_0.fits] mode 2
+(I)	../fits/fits.cpp,65	open_file	Opening File name [test_1_float.fits] mode 1
+(I)	../fits/fits.hh,159	write_image	writing image types=20, 20
+Wrote FITS !
+(I)	../../node-fits/math/jsmat.hh,557	get_data	DataCheck 1046, 985
+Image float data : T object L 42837504 0= [1046]
+Image float data : T object L 42837504 1= [1034]
+Image float data : T object L 42837504 last= [985]
+0 1025
+1 1056
+2 1030
+3 1025
+4 1032
+5 1036
+6 1064
+7 1049
+8 1052
+9 1048
+10 1040
+11 1040
+12 1062
+13 1026
+14 1054
+15 1056
+16 1044
+17 1051
+18 1039
+19 1037
+(I)	../src/sbigcam.cpp,404	start_exposure_func	Copy float image DIMS 4008, 2672
+EXPO msg : {"type":"new_image","content":{},"id":"expo_proc"}
+New image ! w= 4008 h= 2672 writing in file test_2.fits
+(I)	../fits/fits.cpp,65	open_file	Opening File name [test_2.fits] mode 1
+(I)	../fits/fits.hh,159	write_image	writing image types=20, 20
+(I)	../fits/fits.cpp,65	open_file	Opening File name [test_2.fits] mode 2
+(I)	../fits/fits.cpp,65	open_file	Opening File name [test_3_float.fits] mode 1
+(I)	../fits/fits.hh,159	write_image	writing image types=20, 20
+Wrote FITS !
+(I)	../../node-fits/math/jsmat.hh,557	get_data	DataCheck 1025, 962
+Image float data : T object L 42837504 0= [1025]
+Image float data : T object L 42837504 1= [1056]
+Image float data : T object L 42837504 last= [962]
+EXPO msg : {"type":"success","content":"Exposure done","id":"expo_proc"}
+After start exposure...
+END of test.js
+NS= 0 Cam temperature = {"cooling":1,"cooling_setpoint":-9.787817267811569,"cooling_power":1,"ccd_temp":-0.6518153424969313,"ambient_temp":25}
+NS= 1 Cam temperature = {"cooling":1,"cooling_setpoint":-9.787817267811569,"cooling_power":1,"ccd_temp":-1.0710362192582643,"ambient_temp":25}
+NS= 2 Cam temperature = {"cooling":1,"cooling_setpoint":-9.787817267811569,"cooling_power":1,"ccd_temp":-1.0710362192582643,"ambient_temp":25}
+NS= 3 Cam temperature = {"cooling":1,"cooling_setpoint":-9.787817267811569,"cooling_power":1,"ccd_temp":-1.489532575996293,"ambient_temp":25}
+undefined --> cam shutdown ...
+(I)	../src/sbigcam.cpp,487	shutdown	Waiting for end of operations..
+(I)	../src/sbigcam.cpp,496	shutdown	Closing cam devices..
+(I)	../src/sbigcam.cpp,505	shutdown	Closing cam devices..done 
+(I)	../src/sbigcam.cpp,509	shutdown	pcam pointer deleted 
+indy@snoopy:~/git/node-sbig/test$ ll
+totale 83700
+-rw-r--r-- 1 indy indy        0 ott 12 23:22 big.jpeg
+-rw-r--r-- 1 indy indy 21424320 ott 12 23:24 test_0.fits
+-rw-r--r-- 1 indy indy 21424320 ott 12 23:24 test_1_float.fits
+-rw-r--r-- 1 indy indy 21424320 ott 12 23:24 test_2.fits
+-rw-r--r-- 1 indy indy 21424320 ott 12 23:24 test_3_float.fits
+-rw-r--r-- 1 indy indy     2837 ott 12 23:23 test.js
