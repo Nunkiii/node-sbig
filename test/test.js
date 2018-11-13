@@ -35,6 +35,7 @@ function check_jsmat_dbl(){
     var m1=new fits.mat_double();
     var m2=new fits.mat_double();
 
+
     m1.resize(10,10);
     m2.resize(10,10);
 
@@ -55,11 +56,8 @@ function check_jsmat_dbl(){
     
 }
 
-
-
-check_jsmat();
-check_jsmat_dbl();
-
+//check_jsmat();
+//check_jsmat_dbl();
 //return;
 
 
@@ -69,7 +67,7 @@ function check_fits(){
     f.read_image_hdu(function(error, image){
 	var ab=image.get_data();
 	console.log("Image [" + image.width() + ", " +  image.height()+ " ] number of bytes " + ab.length);
-
+	
 	var uv = new Uint16Array(ab);
 	
         console.log("First pix is " + uv[0]);
@@ -77,7 +75,7 @@ function check_fits(){
 	for(var k=0;k<20;k++){
 	    console.log(k + " U16: " + uv[k]);
 	}
-
+	
     });
 }
 
@@ -85,6 +83,8 @@ function check_fits(){
 //Retrieving information about the SBIG cameras connected to the USB
 
 cam.usb_info(function(data){
+    
+    
 
     console.log("USB Info :" + JSON.stringify(data,null,4));
     
@@ -94,9 +94,9 @@ cam.usb_info(function(data){
 	return;
     }
 
-    //Select a camera to use
+    //Select a camera to use (First by default)
     var cam_device=data[0].id;
-
+    
     //Connect to the selected camera
     cam.initialize(cam_device,function (init_message){
 	
@@ -110,6 +110,8 @@ cam.usb_info(function(data){
 	    
 	    cam.exptime=.03;
 	    cam.nexpo=1;
+
+	    cam.set_temp(1, -10.0);
 	    
 	    console.log("Cam cooling info = " + JSON.stringify(cam.get_temp()));
 	    
@@ -165,7 +167,7 @@ cam.usb_info(function(data){
 		    var out = fs.createWriteStream("big_"+expo_counter+".jpeg");
 		    out.write(img.tile( { tile_coord :  [0,0], zoom :  0, tile_size : [512,512], type : "jpeg" }));
 		    out.end();
-
+		    
 		    /*
 		      fifi.set_header_key({ key : "BZERO" , value: 0}, function(r){
 		      if(r!==undefined)
@@ -204,28 +206,30 @@ cam.usb_info(function(data){
 		    }
 
 		    console.log("SBIG: Start Exposure: SUCCESS: Expo counter = " + expo_counter + " N="+cam.nexpo);
-
+		    console.log("Cam temperature = " + JSON.stringify(cam.get_temp()));
+		    
 		    if(expo_counter==cam.nexpo)
 			shutdown();
 
-		    check_fits();
-		    return;
 		    
+		    
+		    //check_fits();
+		    return;
 		    
 		    cam.set_temp(1, -1.0);
 		    
-		    var ns=0;
-		    var iv=setInterval(function(){
-			console.log("NS= "+ ns +" Cam temperature = " + JSON.stringify(cam.get_temp()));
-			if(ns++>2){
+		    // var ns=0;
+		    // var iv=setInterval(function(){
+		    // 	console.log("NS= "+ ns +" Cam temperature = " + JSON.stringify(cam.get_temp()));
+		    // 	if(ns++>2){
 			    
-			    clearInterval(iv);
+		    // 	    clearInterval(iv);
 			    
-			    console.log(expo_message.done + " --> cam shutdown ...");
-			    shutdown();
-			}
+		    // 	    console.log(expo_message.done + " --> cam shutdown ...");
+		    // 	    shutdown();
+		    // 	}
 			
-		    }, 1000);
+		    // }, 1000);
 		    
 		    
 		}
@@ -255,7 +259,4 @@ cam.usb_info(function(data){
 });
 
 
-return;
 
-
-//console.log("END of test.js");
