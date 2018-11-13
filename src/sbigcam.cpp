@@ -20,6 +20,16 @@ namespace sadira{
   using namespace qk;
 
   Persistent<Function> sbig::constructor;
+
+
+  sbig_cam::sbig_cam(sbig* _sbig, SBIG_DEVICE_TYPE dev):CSBIGCam(dev){
+    
+    sb=_sbig;    
+  }
+
+  sbig_cam::sbig_cam(sbig* _sbig){
+    sb=_sbig;    
+  }
   
   void sbig_cam::expo_complete(double pc){
     sb->new_event.lock();
@@ -190,7 +200,8 @@ namespace sadira{
     tpl->InstanceTemplate()->SetInternalFieldCount(6);
 
     // Prototype
-    
+
+    NODE_SET_PROTOTYPE_METHOD(tpl, "usb_info", usb_info_func); 
     NODE_SET_PROTOTYPE_METHOD(tpl, "initialize", initialize_func); 
     NODE_SET_PROTOTYPE_METHOD(tpl, "shutdown", shutdown_func);
     NODE_SET_PROTOTYPE_METHOD(tpl, "start_exposure",start_exposure_func);
@@ -254,25 +265,80 @@ namespace sadira{
   void sbig::initialize_func(const FunctionCallbackInfo<Value>& args){
     Isolate* isolate = args.GetIsolate();
     
-    const char* usage="usage: initialize( callback_function )";
+    const char* usage="usage: initialize( device,  callback_function )";
 
-    if (args.Length() != 1) {
+    if (args.Length() != 2) {
       isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, usage)));
       return;
     }
     
     sbig* obj = ObjectWrap::Unwrap<sbig>(args.This());
-    Local<Function> ccb=Local<Function>::Cast(args[0]);    
+
+    Local<Number> usb_id=Local<Number>::Cast(args[0]);    
+    Local<Function> ccb=Local<Function>::Cast(args[1]);    
     
-    send_status(isolate, ccb,"info","Initializing camera...","init");
+    send_status(isolate, ccb,"info","Initializing camera ","init");
 
     try{
-      obj->initialize();
+      //double uid=usb_id->Value();
+      obj->initialize(usb_id->Value());
       send_status(isolate, ccb,"success","Camera is ready","init");
     }
     catch (qk::exception& e){
       send_status(isolate, ccb,"error",e.mess,"init");
     }
+    args.GetReturnValue().Set(args.This());
+  }
+  
+  void sbig::usb_info_func(const FunctionCallbackInfo<Value>& args){
+    Isolate* isolate = args.GetIsolate();
+    
+    //const char* usage="usage: usb_info( callback_function )";
+
+    
+    sbig* obj = ObjectWrap::Unwrap<sbig>(args.This());
+    Local<Function> ccb=Local<Function>::Cast(args[0]);    
+    
+    //send_status(isolate, ccb,"info","Initializing camera...","init");
+    QueryUSBResults usb_results;
+    QUERY_USB_INFO usb_i;
+    
+    try{
+      
+      usb_results=obj->usb_info();
+      const unsigned argc = 1;
+
+      int ncams=usb_results.camerasFound;
+      v8::Handle<v8::Array> cameras = v8::Array::New(isolate, ncams);
+      stringstream ss;
+      for(int i=0,k=0;i<4;i++){
+	usb_i=usb_results.usbInfo[i];
+	
+	if(usb_i.cameraFound){
+	  ss.str("");
+	  ss<<"DEV_USB"<<(i+1);
+	  v8::Handle<v8::Object> msg = v8::Object::New(isolate);
+	  msg->Set(String::NewFromUtf8(isolate, "id"),Number::New(isolate, i ));
+	  msg->Set(String::NewFromUtf8(isolate, "dev"),String::NewFromUtf8(isolate, ss.str().c_str() ));
+	  msg->Set(String::NewFromUtf8(isolate, "name"),String::NewFromUtf8(isolate, usb_i.name));
+	  msg->Set(String::NewFromUtf8(isolate, "serial"),String::NewFromUtf8(isolate, usb_i.serialNumber));  
+	  
+	  cameras->Set(k, msg);
+	  k++;
+	}
+      }
+      
+      
+      v8::Handle<v8::Value> msgv(cameras);
+      Handle<Value> argv[argc] = { msgv };
+      
+      ccb->Call(isolate->GetCurrentContext()->Global(), argc, argv );    
+    }
+    
+    catch (qk::exception& e){
+      send_status(isolate, ccb,"error",e.mess,"init");
+    }
+    
     args.GetReturnValue().Set(args.This());
   }
 
@@ -516,14 +582,41 @@ namespace sadira{
 
   }
 
-  void sbig::initialize(){
+  QueryUSBResults sbig_cam::usb_info(){
+    QueryUSBResults usb_results;
+    
+    SBIGUnivDrvCommand(CC_QUERY_USB, NULL, &usb_results);
+    return usb_results;
+  }
 
+  QueryUSBResults sbig::usb_info(){
     shutdown();
 
-    MINFO << "Connecting to camera ..." << endl;
+    pcam = new sbig_cam(this);
 
+    pcam->OpenDriver();
+    check_error();
+    
+    QueryUSBResults usb_results = pcam->usb_info();
+
+    check_error();
+    
+    delete pcam;
+    pcam=NULL;
+    return usb_results;
+  }
+  
+  void sbig::initialize(int usb_id){
+
+    MINFO << "Shutting dowm camera ... ID " << usb_id << endl;
+    
+    shutdown();
+
+    MINFO << "Connecting to camera ...ID " << usb_id << endl;
+
+    SBIG_DEVICE_TYPE dev= (SBIG_DEVICE_TYPE) (DEV_USB+2+usb_id);
     //pcam = new sbig_cam(this, DEV_USB1);
-    pcam = new sbig_cam(this, DEV_USB);
+    pcam = new sbig_cam(this, dev);
     
     check_error();
   
@@ -697,11 +790,15 @@ namespace sadira{
       new_event.lock();
       event_id=11;
       last_image.redim(pImg->GetWidth(), pImg->GetHeight());    
+
       last_image.rawcopy(pImg->GetImagePointer(),last_image.dim);
 
-      for(int k=0;k<20;k++){
-	printf("%d %d\n",k, last_image[k]);
-      }
+      //for(int k=0;k<last_image.dim;k++) last_image[k]=2;
+	
+      
+      // for(int k=0;k<20;k++){
+      // 	printf("sbigcam image data %d %d\n",k, last_image[k]);
+      // }
 
       
       //      MINFO << " OK. last image width is "<< last_image.dims[0] << endl;
@@ -1044,10 +1141,9 @@ namespace sadira{
     //colormap_interface::init(exports);
     cout << "Init sbig c++ plugin..." << endl;
     sbig::init(exports);
-    cout << "Init sbig done "<<endl;
     jsmat<unsigned short>::init(exports,"mat_ushort");
     jsmat<float>::init(exports,"mat_float");
-
+    cout << "Init sbig c++ plugin done "<<endl;
   }
   
   NODE_MODULE(sbig, init_node_module)

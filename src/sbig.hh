@@ -35,19 +35,19 @@ namespace sadira{
 
   public:
 
-    sbig_cam(sbig* _sbig, SBIG_DEVICE_TYPE dev)
-      :CSBIGCam(dev),sb(_sbig){
-      
-    }
+    sbig_cam(sbig* _sbig, SBIG_DEVICE_TYPE dev);
+    sbig_cam(sbig* _sbig);
     
     virtual ~sbig_cam(){}
+
+    QueryUSBResults usb_info();
     
     virtual void grab_complete(double pc);
     virtual void expo_complete(double pc);
     sbig* sb;
   };
   
-  class sbig : public node::ObjectWrap { //public colormap_interface {
+  class sbig : public node::ObjectWrap {
   public:
     static void init(Local<Object> exports);
     
@@ -68,6 +68,9 @@ namespace sadira{
     static void stop_exposure_func(const FunctionCallbackInfo<Value>& args);
     static void get_temp_func(const FunctionCallbackInfo<Value>& args);
     static void set_temp_func(const FunctionCallbackInfo<Value>& args);
+    static void usb_info_func(const FunctionCallbackInfo<Value>& args);
+
+    
     
     class expo_thread : public thread{
       
@@ -102,12 +105,13 @@ namespace sadira{
     */
 
     void check_error();
-    void initialize();
+    void initialize(int usb_id);
     void start_exposure();
     void stop_exposure();
     void really_take_exposure();
     void shutdown();
-
+    QueryUSBResults usb_info();
+    
     mat<unsigned short> last_image;
     
     bool infinite_loop;
