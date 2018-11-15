@@ -1,4 +1,4 @@
-var fits = require('../../node-fits/build/Release/fits');
+var fits = require('../node-fits/build/Release/fits');
 var sbig = require('../build/Release/sbig');
 
 //var cam= new sbig.cam();
@@ -164,9 +164,9 @@ sbig.usb_info(function(data){
 		    img.set_colormap(colormap);
 		    img.set_cuts(cuts);
 		    
-		    var out = fs.createWriteStream("big_"+expo_counter+".jpeg");
-		    out.write(img.tile( { tile_coord :  [0,0], zoom :  0, tile_size : [512,512], type : "jpeg" }));
-		    out.end();
+		    // var out = fs.createWriteStream("big_"+expo_counter+".jpeg");
+		    // out.write(img.tile( { tile_coord :  [0,0], zoom :  0, tile_size : [512,512], type : "jpeg" }));
+		    // out.end();
 		    
 		    /*
 		      fifi.set_header_key({ key : "BZERO" , value: 0}, function(r){
