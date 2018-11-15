@@ -1,9 +1,10 @@
 var fits = require('../../node-fits/build/Release/fits');
 var sbig = require('../build/Release/sbig');
 
-var cam= new sbig.cam();
+//var cam= new sbig.cam();
 
 var fs=require("fs");
+
 
 
 
@@ -82,9 +83,7 @@ function check_fits(){
 
 //Retrieving information about the SBIG cameras connected to the USB
 
-cam.usb_info(function(data){
-    
-    
+sbig.usb_info(function(data){
 
     console.log("USB Info :" + JSON.stringify(data,null,4));
     
@@ -96,7 +95,8 @@ cam.usb_info(function(data){
 
     //Select a camera to use (First by default)
     var cam_device=data[0].id;
-    
+
+    var cam= new sbig.cam();
     //Connect to the selected camera
     cam.initialize(cam_device,function (init_message){
 	
@@ -126,7 +126,7 @@ cam.usb_info(function(data){
 		if(expo_message.type=="new_image"){
 		    expo_counter++;
 		    
-		    var img=expo_message.content;
+		    //var img=expo_message.content;
 		    var img=cam.last_image; //expo_message.content;
 		    
 		    

@@ -19,16 +19,140 @@ namespace sadira{
   using namespace std;  
   using namespace qk;
 
+
+  void sbig_cam::check_error(){
+    PAR_ERROR err;
+    if((err = this->GetError()) != CE_NO_ERROR) 
+      throw qk::exception("SBIG Error : "+this->GetErrorString(err));    
+    
+  }
+
+
+  
+  //sbig_driver class implementation.
+  //A single object of this class must be instanciated. 
+
+
+  Persistent<Function> sbig_driver::constructor;
+  
+  sbig_driver::sbig_driver(){
+  }
+  sbig_driver::~sbig_driver(){
+    MINFO << "Hello Destructor!" << endl; //Not called. No-GC?
+  }
+  
+  // void sbig_driver::Destructor(napi_env env, void* nativeObject, void* /*finalize_hint*/) {
+  //   reinterpret_cast<sbig_driver*>(nativeObject)->~sbig_driver();
+  // }
+
+  void sbig_driver::New(const FunctionCallbackInfo<Value>& args){
+    
+    Isolate* isolate = args.GetIsolate();
+    Local<Context> context = isolate->GetCurrentContext();
+    
+    if (args.IsConstructCall()) {
+      
+      //HandleScope scope;
+      
+      sbig_driver* obj = new sbig_driver();
+
+      obj->Wrap(args.This());
+      
+      args.GetReturnValue().Set(args.This());
+      //return args.This();
+      
+    }else{
+      //const int argc = 1;
+      //Local<Value> argv[argc] = { args[0] };
+      
+      Local<Function> cons = Local<Function>::New(isolate, constructor);
+      Local<Object> result =cons->NewInstance(context).ToLocalChecked();
+      args.GetReturnValue().Set(result);
+      
+    }
+
+  }
+  
+  void sbig_driver::init(Local<Object> target){
+    
+    Isolate* isolate=target->GetIsolate();
+    Local<FunctionTemplate> tpl = FunctionTemplate::New(isolate, New);
+    
+    tpl->SetClassName(String::NewFromUtf8(isolate, "sbig"));
+    tpl->InstanceTemplate()->SetInternalFieldCount(1);
+    
+    // Prototype
+    
+    NODE_SET_PROTOTYPE_METHOD(tpl, "initialize_camera", initialize_camera_func); 
+    
+    target->Set(String::NewFromUtf8(isolate,"driver"), tpl->GetFunction());
+    constructor.Reset(isolate, tpl->GetFunction());
+    
+  }
+
+  void sbig_driver::initialize_camera_func(const FunctionCallbackInfo<Value>& args){
+    Isolate* isolate = args.GetIsolate();
+    Local<Context> context = isolate->GetCurrentContext();  
+
+    const char* usage="usage: initialize_camera( DeviceID,  callback_function )";
+    
+    if (args.Length() != 2) {
+      isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, usage)));
+      return;
+    }
+    
+    sbig_driver* obj = ObjectWrap::Unwrap<sbig_driver>(args.This());
+
+    Local<Number> usb_id=Local<Number>::Cast(args[0]);    
+    Local<Function> ccb=Local<Function>::Cast(args[1]);    
+    
+
+    //MINFO << "Shutting dowm camera ... ID " << usb_id << endl;
+    
+    //    shutdown();
+
+    MINFO << "Connecting to camera with USB ID = " << usb_id->Value() << endl;
+
+    SBIG_DEVICE_TYPE dev= (SBIG_DEVICE_TYPE) (DEV_USB+2+usb_id->Value());
+    //pcam = new sbig_cam(this, DEV_USB1);
+
+    sbig_cam* pcam=NULL;
+
+    try{
+      
+      pcam = new sbig_cam(NULL , dev);
+    
+      pcam->check_error();
+
+      Local<Function> cam_cons = Local<Function>::New(isolate, sbig::constructor);
+      Local<Object> camera =cam_cons->NewInstance(context).ToLocalChecked();
+      
+      args.GetReturnValue().Set(camera);
+      
+    }
+
+    catch(qk::exception& e){
+      
+    }
+    
+  }
+  
+  
+  //sbig class implementation.
+  //An sbig object represents a single camera connected to the driver.
+  
   Persistent<Function> sbig::constructor;
 
 
-  sbig_cam::sbig_cam(sbig* _sbig, SBIG_DEVICE_TYPE dev):CSBIGCam(dev){
+  sbig_cam::sbig_cam(sbig* _sbig, SBIG_DEVICE_TYPE dev): CSBIGCam(dev){
     
-    sb=_sbig;    
+
+    sb=_sbig;
+
   }
 
   sbig_cam::sbig_cam(sbig* _sbig){
-    sb=_sbig;    
+    sb=_sbig;
   }
   
   void sbig_cam::expo_complete(double pc){
@@ -52,7 +176,10 @@ namespace sadira{
     pcam(0),
     expt(this),
     infinite_loop(false),
-    continue_expo(0){  
+    continue_expo(0){
+    width=0;
+    height=0;
+
   }
   
   sbig::~sbig(){
@@ -197,17 +324,20 @@ namespace sadira{
     Local<FunctionTemplate> tpl = FunctionTemplate::New(isolate, New);
     
     tpl->SetClassName(String::NewFromUtf8(isolate, "sbig"));
-    tpl->InstanceTemplate()->SetInternalFieldCount(6);
+    tpl->InstanceTemplate()->SetInternalFieldCount(7);
 
     // Prototype
 
-    NODE_SET_PROTOTYPE_METHOD(tpl, "usb_info", usb_info_func); 
+    //    NODE_SET_PROTOTYPE_METHOD(tpl, "usb_info", usb_info_func); 
     NODE_SET_PROTOTYPE_METHOD(tpl, "initialize", initialize_func); 
     NODE_SET_PROTOTYPE_METHOD(tpl, "shutdown", shutdown_func);
     NODE_SET_PROTOTYPE_METHOD(tpl, "start_exposure",start_exposure_func);
     NODE_SET_PROTOTYPE_METHOD(tpl, "stop_exposure", stop_exposure_func);
     NODE_SET_PROTOTYPE_METHOD(tpl, "get_temp", get_temp_func);
     NODE_SET_PROTOTYPE_METHOD(tpl, "set_temp", set_temp_func);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "filter_wheel", filter_wheel_func);
+    //NODE_SET_PROTOTYPE_METHOD(tpl, "sub_frame", sub_frame_func);
+
 
     target->Set(String::NewFromUtf8(isolate,"cam"), tpl->GetFunction());
     constructor.Reset(isolate, tpl->GetFunction());
@@ -263,6 +393,7 @@ namespace sadira{
   }
 
   void sbig::initialize_func(const FunctionCallbackInfo<Value>& args){
+
     Isolate* isolate = args.GetIsolate();
     
     const char* usage="usage: initialize( device,  callback_function )";
@@ -289,14 +420,182 @@ namespace sadira{
     }
     args.GetReturnValue().Set(args.This());
   }
+
+  PAR_ERROR cfwInit(unsigned short cfwModel, CFWResults* pRes){
+    PAR_ERROR	err;
+    CFWParams cfwp;
+    
+    cfwp.cfwModel   = cfwModel;
+    cfwp.cfwCommand = CFWC_INIT;
+    err = (PAR_ERROR)SBIGUnivDrvCommand(CC_CFW, &cfwp, pRes);
+    
+    if (err != CE_NO_ERROR)
+      {
+	return err;
+      }
+
+    do
+      {
+	cfwp.cfwCommand = CFWC_QUERY;
+	err = (PAR_ERROR)SBIGUnivDrvCommand(CC_CFW, &cfwp, pRes);
+	
+	if (err != CE_NO_ERROR)
+	  {
+	    continue;
+	  }
+	
+	if (pRes->cfwStatus != CFWS_IDLE)
+	  {
+	    sleep(1);
+	  }
+      }
+    while (pRes->cfwStatus != CFWS_IDLE);
+    
+    return err;
+  }
   
-  void sbig::usb_info_func(const FunctionCallbackInfo<Value>& args){
+  //==============================================================
+  PAR_ERROR cfwGoto(unsigned short cfwModel, int cfwPosition, CFWResults* pRes){
+    PAR_ERROR err;
+    CFWParams cfwp;
+    
+    cfwp.cfwModel = cfwModel;
+
+    do
+      {
+	cfwp.cfwCommand = CFWC_QUERY;
+	err = (PAR_ERROR)SBIGUnivDrvCommand(CC_CFW, &cfwp, pRes);
+	
+	if (err != CE_NO_ERROR)
+	  {
+	    continue;
+	  }
+	
+	if (pRes->cfwStatus != CFWS_IDLE)
+	  {
+	    sleep(1);
+	  }
+      }
+    while (pRes->cfwStatus != CFWS_IDLE);
+    
+    cfwp.cfwCommand = CFWC_GOTO;
+    cfwp.cfwParam1  = cfwPosition;
+    err = (PAR_ERROR)SBIGUnivDrvCommand(CC_CFW, &cfwp, pRes);
+    if (err != CE_NO_ERROR)
+      {
+	return err;
+      }
+    
+    do
+      {
+	cfwp.cfwCommand = CFWC_QUERY;
+	err = (PAR_ERROR)SBIGUnivDrvCommand(CC_CFW, &cfwp, pRes);
+	
+	if (err != CE_NO_ERROR)
+	  {
+	    continue;
+	  }
+	
+	if (pRes->cfwStatus != CFWS_IDLE)
+	  {
+	    sleep(1);
+	  }
+      }
+    while (pRes->cfwStatus != CFWS_IDLE);
+    
+    return err;
+  }
+  //==============================================================
+  void cfwShowResults(CFWResults* pRes){
+    fprintf(stderr, "CFWResults->cfwModel      : %d\n", pRes->cfwModel);
+    fprintf(stderr, "CFWResults->cfwPosition   : %d\n", pRes->cfwPosition);
+    fprintf(stderr, "CFWResults->cfwStatus     : %d\n", pRes->cfwStatus);
+    fprintf(stderr, "CFWResults->cfwError      : %d\n", pRes->cfwError);
+  }
+  
+  
+  void sbig::filter_wheel_func(const FunctionCallbackInfo<Value>& args){
+    
+    const char* usage="usage: filter_wheel(wheel_position_integer)";
+    Isolate* isolate = args.GetIsolate();
+
+    if (args.Length() != 1) {
+
+      isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, usage)));
+      return;
+    }
+
+    
+    sbig* obj = ObjectWrap::Unwrap<sbig>(args.This());
+
+    Local<Number> pos=Local<Number>::Cast(args[0]);
+    
+    unsigned long  position= (unsigned long) pos->Value();
+    unsigned short cfwModel;
+    
+    switch (obj->pcam->GetCameraType()){
+    case 	STL_CAMERA:
+      cfwModel = CFWSEL_CFWL;
+      break;
+      
+    case	STF_CAMERA:
+      cfwModel = CFWSEL_FW5_8300;
+      break;
+      
+    default:
+      cfwModel = CFWSEL_AUTO;
+      break;
+    };
+
+    PAR_ERROR	 err;
+    CFWResults cfwr;
+
+    err = cfwInit(cfwModel, &cfwr);
+    
+    fprintf(stderr, "----------------------------------------------\n");
+    fprintf(stderr, "cfwInit err: %d\n", err);
+
+    if (err != CE_NO_ERROR){
+      isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Error initializing filter wheel !")));
+      args.GetReturnValue().Set(args.This());
+      return;
+    }
+
+    cfwModel = cfwr.cfwModel;
+    
+    sleep(5);
+    
+    // cfwGoto
+    //position = 3;
+    err = cfwGoto(cfwModel, position, &cfwr);
+    fprintf(stderr, "----------------------------------------------\n");
+    fprintf(stderr, "cfwGoto requested position: %ld, err: %d\n", position, err);
+    
+    if (err != CE_NO_ERROR){
+      isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, usage)));
+      args.GetReturnValue().Set(args.This());
+      return;
+    }
+    
+    cfwShowResults(&cfwr);
+    args.GetReturnValue().Set(args.This());
+  }
+  
+  void usb_info_func(const FunctionCallbackInfo<Value>& args){
+
     Isolate* isolate = args.GetIsolate();
     
     //const char* usage="usage: usb_info( callback_function )";
 
-    
-    sbig* obj = ObjectWrap::Unwrap<sbig>(args.This());
+
+    const char* usage="usage: usb_info(callback_function )";
+
+    if (args.Length() != 1) {
+      isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, usage)));
+      return;
+    }
+
+    //sbig* obj = ObjectWrap::Unwrap<sbig>(args.This());
     Local<Function> ccb=Local<Function>::Cast(args[0]);    
     
     //send_status(isolate, ccb,"info","Initializing camera...","init");
@@ -304,8 +603,14 @@ namespace sadira{
     QUERY_USB_INFO usb_i;
     
     try{
+
+      CSBIGCam* pcam=new CSBIGCam();
+      pcam->OpenDriver();
       
-      usb_results=obj->usb_info();
+      usb_results=usb_info();
+      pcam->CloseDriver();
+      delete pcam;
+      
       const unsigned argc = 1;
 
       int ncams=usb_results.camerasFound;
@@ -342,29 +647,100 @@ namespace sadira{
     args.GetReturnValue().Set(args.This());
   }
 
+  /*
+  void sbig::sub_frame_func(const FunctionCallbackInfo<Value>& args){
+  }
 
-
-  
-  //template <class T> 
-  //Persistent<Function> 
-  //jsmat<unsigned short>::constructor;
-
+  void sbig::set_filter_wheel_func(const FunctionCallbackInfo<Value>& args){
+  }
+  */
 
   void sbig::start_exposure_func(const FunctionCallbackInfo<Value>& args){
     Isolate* isolate = args.GetIsolate();
+
+    const char* usage="usage: start_exposure( {options},  callback_function )";
+
+    if (args.Length() != 2) {
+      isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, usage)));
+      return;
+    
+    }
+
     Local<Context> context = isolate->GetCurrentContext();
     
     sbig* obj = ObjectWrap::Unwrap<sbig>(args.This());
     //obj->cb = Local<Function>::Cast(args[0]);    
-    Local<Function> cb=Local<Function>::Cast(args[0]);
+
+    Local<Object> options=Local<Function>::Cast(args[0]);
+    Local<Function> cb=Local<Function>::Cast(args[1]);
+
+    obj->pcam->SetActiveCCD(CCD_IMAGING);
     
-    Handle<Value> fff=args.This()->Get(String::NewFromUtf8(isolate, "exptime"));
-    obj->exptime = fff->NumberValue();
+    Local<Value> fff=options->Get(String::NewFromUtf8(isolate, "exptime"));
+    if(!fff->IsUndefined()){
+      obj->pcam->SetExposureTime(fff->NumberValue());
+      obj->exptime = fff->NumberValue();
+    }
+    
+    fff=options->Get(String::NewFromUtf8(isolate, "nexpo"));
+    
+    if(!fff->IsUndefined()){
+      obj->nexpo = fff->NumberValue();
+    }
+    
+    fff=options->Get(String::NewFromUtf8(isolate, "fast_readout"));
+    if(!fff->IsUndefined()){
+      
+      obj->pcam->SetFastReadout(fff->NumberValue());
+    }
+    
+    fff=options->Get(String::NewFromUtf8(isolate, "dual_channel_mode"));
+    if(!fff->IsUndefined()){
+      obj->pcam->SetDualChannelMode(fff->NumberValue());
+    }
 
-    fff=args.This()->Get(String::NewFromUtf8(isolate, "nexpo"));
-    obj->nexpo = fff->NumberValue();
+    int rm=0;
+    int top=0, left=0, fullWidth, fullHeight;
+    
+    fff=options->Get(String::NewFromUtf8(isolate, "readout_mode"));
+    if(!fff->IsUndefined()){
+      v8::String::Utf8Value param1(fff->ToString());
+      
+      // convert it to string
+      std::string foo = std::string(*param1);  
+      //readout mode
+      rm = 0; //suppose 1x1
+      if (strcmp(foo.c_str(), "2x2") == 0){
+	  rm = 1;
+      }
+      else if (strcmp(foo.c_str(), "3x3") == 0){
+	rm = 2;
+    }
+    
+      obj->pcam->SetReadoutMode(rm);
+    }
+    
+    Local<Array> subframe_array=Local<Array>::Cast(options->Get(String::NewFromUtf8(isolate, "subframe")));
+    if(!subframe_array->IsUndefined()){
 
-    send_status(isolate, cb,"info","Initializing exposure...","expo_proc");
+      Local<Number> n;
+      n= Local<Number>::Cast(subframe_array->Get(0));left=n->Value();
+      n= Local<Number>::Cast(subframe_array->Get(1));top=n->Value();
+      n= Local<Number>::Cast(subframe_array->Get(2));obj->width=n->Value();
+      n= Local<Number>::Cast(subframe_array->Get(3));obj->height=n->Value();
+      MINFO << "subframe " << left << ","<< top<< ","<< obj->width<< ","<< obj->height <<endl;
+    }
+	obj->pcam->GetFullFrame(fullWidth, fullHeight);
+      
+      if (obj->width == 0)obj->width = fullWidth;
+      
+      
+      if (obj->height == 0)obj->height = fullHeight;
+      obj->pcam->SetSubFrame(left, top, obj->width, obj->height);
+      
+    
+      stringstream ss; ss<<"Initializing exposure exptime="<<obj->exptime<<" nexpo="<<obj->nexpo;
+    send_status(isolate, cb,"info",ss.str().c_str(),"expo_proc");
 
     try{
 
@@ -582,37 +958,37 @@ namespace sadira{
 
   }
 
-  QueryUSBResults sbig_cam::usb_info(){
+  QueryUSBResults usb_info(){
     QueryUSBResults usb_results;
     
     SBIGUnivDrvCommand(CC_QUERY_USB, NULL, &usb_results);
     return usb_results;
   }
 
-  QueryUSBResults sbig::usb_info(){
-    shutdown();
+  // QueryUSBResults sbig::usb_info(){
+  //   shutdown();
 
-    pcam = new sbig_cam(this);
+  //   pcam = new sbig_cam(this);
 
-    pcam->OpenDriver();
-    check_error();
+  //   pcam->OpenDriver();
+  //   check_error();
     
-    QueryUSBResults usb_results = pcam->usb_info();
+  //   QueryUSBResults usb_results = pcam->usb_info();
 
-    check_error();
+  //   check_error();
     
-    delete pcam;
-    pcam=NULL;
-    return usb_results;
-  }
+  //   delete pcam;
+  //   pcam=NULL;
+  //   return usb_results;
+  // }
   
   void sbig::initialize(int usb_id){
 
-    MINFO << "Shutting dowm camera ... ID " << usb_id << endl;
+    //MINFO << "Shutting dowm camera ... ID " << usb_id << endl;
     
     shutdown();
 
-    MINFO << "Connecting to camera ...ID " << usb_id << endl;
+    MINFO << "Connecting to camera with USB ID = " << usb_id << endl;
 
     SBIG_DEVICE_TYPE dev= (SBIG_DEVICE_TYPE) (DEV_USB+2+usb_id);
     //pcam = new sbig_cam(this, DEV_USB1);
@@ -626,7 +1002,7 @@ namespace sadira{
     double setpoint_temp;
     double percent_power;
 
-    MINFO << "Connected to camera ..."<<endl;
+    //    MINFO << "Connected to camera"<<endl;
 
     pcam->QueryTemperatureStatus(regulation_enabled, ccd_temp,setpoint_temp, percent_power);
 
@@ -646,7 +1022,7 @@ namespace sadira{
     //   cerr << e.mess << endl;
     // }
     
-    pcam->GetFullFrame(ccd_width, ccd_height);
+    //    pcam->GetFullFrame(ccd_width, ccd_height);
 
     MINFO << "Connected to camera : [" << pcam->GetCameraTypeString() << "] cam info = ["<< caminfo<<"]"<<endl;
     MINFO << "CCD Temperature regulation : " << (regulation_enabled? "ON" : "OFF")
@@ -747,7 +1123,8 @@ namespace sadira{
     
     CSBIGImg *pImg= 0;    
     pImg = new CSBIGImg;
-
+    pImg->AllocateImageBuffer(height, width);
+    
     //MINFO << "Accumulating photons .... exptime="<<exptime << endl;
 
     //pCam->GetFullFrame( nWidth, nHeight);
@@ -770,7 +1147,7 @@ namespace sadira{
     //    continue_expo_mut.unlock();
     //    continue_expo_mut.lock();
 
-    pcam->SetExposureTime(exptime);
+    //pcam->SetExposureTime(exptime);
     //      exptime.unuse();
     check_error();
 
@@ -930,9 +1307,9 @@ namespace sadira{
 
 
 
-
+    
   }
-
+  
 
   void sbig::close_shutter(){
 
@@ -1137,13 +1514,16 @@ namespace sadira{
   //Persistent<FunctionTemplate> jsmat<unsigned short>::s_ctm;
 
   void init_node_module(Handle<Object> exports) {
-
+    
     //colormap_interface::init(exports);
-    cout << "Init sbig c++ plugin..." << endl;
+    //    cout << "Init sbig c++ plugin..." << endl;
     sbig::init(exports);
+    sbig_driver::init(exports);
     jsmat<unsigned short>::init(exports,"mat_ushort");
     jsmat<float>::init(exports,"mat_float");
-    cout << "Init sbig c++ plugin done "<<endl;
+
+    NODE_SET_METHOD(exports,"usb_info", usb_info_func);
+    //cout << "Init sbig c++ plugin done "<<endl;
   }
   
   NODE_MODULE(sbig, init_node_module)

@@ -44,7 +44,32 @@ namespace sadira{
     
     virtual void grab_complete(double pc);
     virtual void expo_complete(double pc);
+
+    void check_error();
+    
     sbig* sb;
+  };
+
+  QueryUSBResults usb_info(); 
+  
+  class sbig_driver: public node::ObjectWrap {
+  public:
+    static void init(Local<Object> exports);
+    
+  private:
+
+    explicit sbig_driver();
+    ~sbig_driver();
+    
+    static void New(const FunctionCallbackInfo<Value>& args);
+    //static void Destructor(napi_env env, void* nativeObject, void*);
+
+  private:
+    static void initialize_camera_func(const FunctionCallbackInfo<Value>& args);
+    v8::Local<v8::Function> cb;
+
+    static Persistent<Function> constructor;
+    QueryUSBResults usb_info();
   };
   
   class sbig : public node::ObjectWrap {
@@ -68,7 +93,8 @@ namespace sadira{
     static void stop_exposure_func(const FunctionCallbackInfo<Value>& args);
     static void get_temp_func(const FunctionCallbackInfo<Value>& args);
     static void set_temp_func(const FunctionCallbackInfo<Value>& args);
-    static void usb_info_func(const FunctionCallbackInfo<Value>& args);
+    static void filter_wheel_func(const FunctionCallbackInfo<Value>& args);
+    ///static void usb_info_func(const FunctionCallbackInfo<Value>& args);
 
     
     
@@ -92,10 +118,11 @@ namespace sadira{
     cond new_event;
     int event_id;
     double complete;
+    static Persistent<Function> constructor;
   private:
     v8::Local<v8::Function> cb;
 
-    static Persistent<Function> constructor;
+    
     
     /*
     REG_BASE_OBJECT sbig();
@@ -110,7 +137,7 @@ namespace sadira{
     void stop_exposure();
     void really_take_exposure();
     void shutdown();
-    QueryUSBResults usb_info();
+
     
     mat<unsigned short> last_image;
     
@@ -120,7 +147,7 @@ namespace sadira{
     int nexpo;
     
 
-    int ccd_width, ccd_height;
+    int ccd_width, ccd_height, width, height;
     string camera_type_string;
     double ambient_temperature;
     double ccd_temperature;
