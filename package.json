@@ -28,7 +28,7 @@
   },
   "homepage": "https://github.com/Nunkiii/node-sbig#readme",
   "dependencies": {
-    "nan": "^2.11.1",
+    "nan": "^2.7.0",
     "node-fits": "github:Nunkiii/node-fits"
   }
 }
