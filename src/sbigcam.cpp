@@ -101,11 +101,10 @@ namespace sadira{
       return;
     }
     
-    //sbig_driver* obj = ObjectWrap::Unwrap<sbig_driver>(args.This());
+//    sbig_driver* obj = ObjectWrap::Unwrap<sbig_driver>(args.This());
 
     Local<Number> usb_id=Local<Number>::Cast(args[0]);    
-    //Local<Function> ccb=Local<Function>::Cast(args[1]);    
-    
+//    Local<Function> ccb=Local<Function>::Cast(args[1]);    
 
     //MINFO << "Shutting dowm camera ... ID " << usb_id << endl;
     
