@@ -66,12 +66,21 @@ sbig.usb_info(function(data){
 	cam1.initialize(data[0].id,function (init_message){
 	    console.log("CAM1 Init : " + JSON.stringify(init_message));
 	    
+	    
 	    if(init_message.type=="success") {
+		console.log("CCD INFO : " + JSON.stringify(cam1.ccd_info(),null,5));
+
+
 		
 		console.log(init_message.content + " --> starting exposure.");
 		take_image(cam1,"cam1");
 
-		cam1.filter_wheel(1);
+		try{
+		    cam1.filter_wheel(1);
+		}
+		catch( e){
+		    console.log("Cannot move any filterwheel " + e);
+		}
 	    }
 	    if(init_message.type=="info") {
 		console.log("Cam1 Info : " + init_message.content );

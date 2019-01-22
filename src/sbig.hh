@@ -94,6 +94,7 @@ namespace sadira{
     static void get_temp_func(const FunctionCallbackInfo<Value>& args);
     static void set_temp_func(const FunctionCallbackInfo<Value>& args);
     static void filter_wheel_func(const FunctionCallbackInfo<Value>& args);
+    static void ccd_info_func(const FunctionCallbackInfo<Value>& args);
     ///static void usb_info_func(const FunctionCallbackInfo<Value>& args);
 
     

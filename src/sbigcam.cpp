@@ -101,10 +101,10 @@ namespace sadira{
       return;
     }
     
-    sbig_driver* obj = ObjectWrap::Unwrap<sbig_driver>(args.This());
+    //sbig_driver* obj = ObjectWrap::Unwrap<sbig_driver>(args.This());
 
     Local<Number> usb_id=Local<Number>::Cast(args[0]);    
-    Local<Function> ccb=Local<Function>::Cast(args[1]);    
+    //Local<Function> ccb=Local<Function>::Cast(args[1]);    
     
 
     //MINFO << "Shutting dowm camera ... ID " << usb_id << endl;
@@ -241,6 +241,54 @@ namespace sadira{
   
 
   //Persistent<FunctionTemplate> sbig::s_cts;
+
+  void sbig::ccd_info_func(const FunctionCallbackInfo<Value>& args){
+        Isolate* isolate = args.GetIsolate();
+	sbig* obj = ObjectWrap::Unwrap<sbig>(args.This());
+	sbig_cam* cam=obj->pcam;
+	
+	if(!cam){
+	  isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Camera not connected!")));
+	  return;
+	}
+
+	GetCCDInfoParams	par;
+	GetCCDInfoResults0  res;
+	par.request = 1;
+	SBIGUnivDrvCommand(CC_GET_CCD_INFO, &par, &res);
+	cam->check_error();
+
+	MINFO << "OK CCD INFO! " << res.readoutModes <<endl;
+	
+	res.readoutModes=10;
+	
+	v8::Handle<v8::Object> ccd_info = v8::Object::New(isolate);
+	ccd_info->Set(String::NewFromUtf8(isolate, "Readout modes"),Number::New(isolate, res.readoutModes ));
+	ccd_info->Set(String::NewFromUtf8(isolate, "name"),String::NewFromUtf8(isolate, res.name ));
+
+	v8::Handle<v8::Array> ccd_modes = v8::Array::New(isolate);
+
+	ccd_info->Set(String::NewFromUtf8(isolate, "Readout information"),ccd_modes);
+
+	
+	for(int i=0;i<res.readoutModes;i++){
+	  v8::Handle<v8::Object> mode_info = v8::Object::New(isolate);
+
+	  MINFO << "OK CCD INFO!" <<res.name <<  " ID " << i<< endl;
+
+	  mode_info->Set(String::NewFromUtf8(isolate, "Mode"),Number::New(isolate, res.readoutInfo[i].mode ));
+	  mode_info->Set(String::NewFromUtf8(isolate, "Width"),Number::New(isolate, res.readoutInfo[i].width ));
+	  mode_info->Set(String::NewFromUtf8(isolate, "Height"),Number::New(isolate, res.readoutInfo[i].height ));
+	  mode_info->Set(String::NewFromUtf8(isolate, "Gain"),Number::New(isolate, res.readoutInfo[i].gain ));
+	  mode_info->Set(String::NewFromUtf8(isolate, "PixelWidth"),Number::New(isolate, res.readoutInfo[i].pixelWidth ));
+	  mode_info->Set(String::NewFromUtf8(isolate, "PixelHeight"),Number::New(isolate, res.readoutInfo[i].pixelHeight ));
+	  MINFO << "DONE CCD INFO!" <<res.name << endl;
+
+	  ccd_modes->Set(i,mode_info);
+	}
+
+	args.GetReturnValue().Set(ccd_info);
+  }
   
   
   void sbig::set_temp_func(const FunctionCallbackInfo<Value>& args){
@@ -287,7 +335,7 @@ namespace sadira{
     }
 
 
-    v8::Handle<v8::Object> result = v8::Object::New(isolate);
+    
 
     PAR_ERROR res = CE_NO_ERROR;
     double d,setpoint,cooling_power;
@@ -297,8 +345,11 @@ namespace sadira{
 
     if ( (res = cam->QueryTemperatureStatus(cooling_enabled, d, setpoint, cooling_power)) != CE_NO_ERROR ){
       isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Error getting CCD temperature!")));
+      return;
     }
 
+    v8::Handle<v8::Object> result = v8::Object::New(isolate);
+    
     result->Set(String::NewFromUtf8(isolate, "cooling"),v8::Number::New(isolate, cooling_enabled));
     result->Set(String::NewFromUtf8(isolate, "cooling_setpoint"),v8::Number::New(isolate, setpoint));
     result->Set(String::NewFromUtf8(isolate, "cooling_power"),v8::Number::New(isolate, cooling_power));
@@ -308,12 +359,14 @@ namespace sadira{
     
     // Ambient Temperature
     if ( (res = cam->SBIGUnivDrvCommand(CC_QUERY_TEMPERATURE_STATUS, NULL, &qtsr)) != CE_NO_ERROR ){
-      isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Error getting Ambient temperature!")));
-      return;
-    }
+      MWARN << "Error getting Ambient temperature!"<<endl;
+      //isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Error getting Ambient temperature!")));
+    }else{
 
-    d=cam->ADToDegreesC(qtsr.ambientThermistor, FALSE);
-    result->Set(String::NewFromUtf8(isolate, "ambient_temp"),v8::Number::New(isolate, d));
+      d=cam->ADToDegreesC(qtsr.ambientThermistor, FALSE);
+      result->Set(String::NewFromUtf8(isolate, "ambient_temp"),v8::Number::New(isolate, d));
+    }
+    
     args.GetReturnValue().Set(result);
 
   }
@@ -324,7 +377,7 @@ namespace sadira{
     Local<FunctionTemplate> tpl = FunctionTemplate::New(isolate, New);
     
     tpl->SetClassName(String::NewFromUtf8(isolate, "sbig"));
-    tpl->InstanceTemplate()->SetInternalFieldCount(7);
+    tpl->InstanceTemplate()->SetInternalFieldCount(8);
 
     // Prototype
 
@@ -336,6 +389,7 @@ namespace sadira{
     NODE_SET_PROTOTYPE_METHOD(tpl, "get_temp", get_temp_func);
     NODE_SET_PROTOTYPE_METHOD(tpl, "set_temp", set_temp_func);
     NODE_SET_PROTOTYPE_METHOD(tpl, "filter_wheel", filter_wheel_func);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "ccd_info", ccd_info_func);
     //NODE_SET_PROTOTYPE_METHOD(tpl, "sub_frame", sub_frame_func);
 
 
@@ -730,9 +784,11 @@ namespace sadira{
       n= Local<Number>::Cast(subframe_array->Get(3));obj->height=n->Value();
       MINFO << "subframe " << left << ","<< top<< ","<< obj->width<< ","<< obj->height <<endl;
     }
-	obj->pcam->GetFullFrame(fullWidth, fullHeight);
-      
-      if (obj->width == 0)obj->width = fullWidth;
+    obj->pcam->GetFullFrame(fullWidth, fullHeight);
+    
+    MINFO << "FullFrame : " << fullWidth << ", " << fullHeight << endl;
+    
+    if (obj->width == 0)obj->width = fullWidth;
       
       
       if (obj->height == 0)obj->height = fullHeight;
