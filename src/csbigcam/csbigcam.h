@@ -72,8 +72,7 @@ private:
 										m_nSubFrameTop,
 										m_nSubFrameWidth,
 										m_nSubFrameHeight;
-	GRAB_STATE 				m_eGrabState;
-	double 						m_dGrabPercent;
+
 	CFW_MODEL_SELECT	m_eCFWModel;
 	CFW_ERROR 				m_eCFWError;
 	bool							m_FastReadout;
@@ -88,12 +87,18 @@ private:
 	m_sGrabInfo;
 
 public:
+	GRAB_STATE 				m_eGrabState;
+	double 						m_dGrabPercent;
+
 	// Constructors/Destructors
 	CSBIGCam();
 	CSBIGCam(OpenDeviceParams odp);
 	CSBIGCam(SBIG_DEVICE_TYPE dev);
 	~CSBIGCam();
 
+	virtual void grab_complete(double pc)=0;
+	virtual void expo_complete(double pc)=0;
+	
 	void Init();
 
 	// Error Reporting Routines

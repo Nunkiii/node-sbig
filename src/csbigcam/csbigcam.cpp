@@ -858,6 +858,8 @@ PAR_ERROR CSBIGCam::GrabMain(CSBIGImg *pImg, SBIG_DARK_FRAME dark)
 	do 
 	{
 		m_dGrabPercent = (double)(time(NULL) - curTime)/m_dExposureTime;
+		//cout << "EXPO" << m_dGrabPercent << endl;
+		expo_complete(m_dGrabPercent);
 	} 
 	while ((err = IsExposureComplete(expComp)) == CE_NO_ERROR && !expComp );
 	
@@ -893,6 +895,8 @@ PAR_ERROR CSBIGCam::GrabMain(CSBIGImg *pImg, SBIG_DARK_FRAME dark)
 		{
 			m_dGrabPercent = (double)(i+1) / m_sGrabInfo.height;
 			err = ReadoutLine(rlp, FALSE, pImg->GetImagePointer() + (long)i * m_sGrabInfo.width);
+			//cout << "Grab" << m_dGrabPercent << endl;
+			grab_complete(m_dGrabPercent);
 		}
 	}
 	
@@ -925,7 +929,9 @@ PAR_ERROR CSBIGCam::GrabMain(CSBIGImg *pImg, SBIG_DARK_FRAME dark)
 		// wait for exposure to complete
 		do
 		{
-			m_dGrabPercent = (double)(time(NULL) - curTime)/m_dExposureTime;
+		  m_dGrabPercent = (double)(time(NULL) - curTime)/m_dExposureTime;
+		  //cout << "EXPO" << m_dGrabPercent << endl;
+		  expo_complete(m_dGrabPercent);
 		}
 		while ((err = IsExposureComplete(expComp)) == CE_NO_ERROR && !expComp );
 
@@ -951,6 +957,8 @@ PAR_ERROR CSBIGCam::GrabMain(CSBIGImg *pImg, SBIG_DARK_FRAME dark)
 			rlp.readoutMode = m_uReadoutMode;
 			for (i=0; i<m_sGrabInfo.height && err==CE_NO_ERROR; i++ ) {
 				m_dGrabPercent = (double)(i+1)/m_sGrabInfo.height;
+				//cout << "Grab" << m_dGrabPercent << endl;
+				grab_complete(m_dGrabPercent);
 				err = ReadoutLine(rlp, TRUE, pImg->GetImagePointer() + (long)i * m_sGrabInfo.width);
 			}
 		}

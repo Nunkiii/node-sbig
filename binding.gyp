@@ -2,8 +2,8 @@
     "targets": [{
         "target_name": "sbig",
         "sources": [
-            "./node_modules/node-fits/fits/fits.cpp",
-            "./node_modules/node-fits/qk/exception.cpp",
+            
+	    "./node_modules/node-fits/qk/exception.cpp",
             "./node_modules/node-fits/qk/pngwriter.cpp",
             "./node_modules/node-fits/qk/jpeg_writer.cpp",
             "./node_modules/node-fits/qk/threads.cpp",

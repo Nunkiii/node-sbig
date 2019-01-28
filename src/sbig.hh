@@ -8,12 +8,14 @@
 #ifndef __SBIG_HH__
 #define __SBIG_HH__
 
-#include <node.h>
-#include <node_object_wrap.h>
-#include <node_buffer.h>
+//#include <node.h>
+//#include <node_object_wrap.h>
+//#include <node_buffer.h>
 
 #include <string>
 #include <fitsio.h>
+
+#include <nan.h>
 
 //#include "colormap.hh"
 #include "csbigcam/csbigcam.h"
@@ -26,8 +28,8 @@ namespace sadira{
   
   using namespace std;
   using namespace qk;
-  using namespace v8;
-  using namespace node;
+  //  using namespace v8;
+  using namespace Nan;
 
   class sbig;
 
@@ -52,52 +54,61 @@ namespace sadira{
 
   QueryUSBResults usb_info(); 
   
-  class sbig_driver: public node::ObjectWrap {
+  class sbig_driver: public Nan::ObjectWrap {
   public:
-    static void init(Local<Object> exports);
-    
+    static void init(v8::Local<v8::Object> exports);
+
+    static inline Nan::Persistent<v8::Function> & constructor() {
+      static Nan::Persistent<v8::Function> my_constructor;
+      return my_constructor;
+    }
+
   private:
 
     explicit sbig_driver();
     ~sbig_driver();
     
-    static void New(const FunctionCallbackInfo<Value>& args);
-    //static void Destructor(napi_env env, void* nativeObject, void*);
+    static void New(const Nan::FunctionCallbackInfo<v8::Value>& args);
+    //static void Destructor(napi_env env, void* nativev8::Object, void*);
 
   private:
-    static void initialize_camera_func(const FunctionCallbackInfo<Value>& args);
+    static void initialize_camera_func(const Nan::FunctionCallbackInfo<v8::Value>& args);
     v8::Local<v8::Function> cb;
 
-    static Persistent<Function> constructor;
+    //static Nan::Persistent<Function> constructor;
     QueryUSBResults usb_info();
   };
   
-  class sbig : public node::ObjectWrap {
+  class sbig : public Nan::ObjectWrap {
   public:
-    static void init(Local<Object> exports);
+    static void init(v8::Local<v8::Object> exports);
     
-    //static Persistent<FunctionTemplate> s_cts;
+    //static Nan::Persistent<FunctionTemplate> s_cts;
+    static inline Nan::Persistent<v8::Function> & constructor() {
+      static Nan::Persistent<v8::Function> my_constructor;
+      return my_constructor;
+    }
     
   private:
 
     explicit sbig();
     ~sbig();
     
-    void send_status_message(Isolate* isolate, const string& type, const string& message);
+    void send_status_message(v8::Isolate* isolate, const string& type, const string& message);
     //v8::Handle<node::Buffer> gen_pngtile(v8::Handle<v8::Array>& parameters);
     
-    static void New(const FunctionCallbackInfo<Value>& args);
-    static void shutdown_func(const FunctionCallbackInfo<Value>& args);
-    static void initialize_func(const FunctionCallbackInfo<Value>& args);
-    static void start_exposure_func(const FunctionCallbackInfo<Value>& args);
-    static void stop_exposure_func(const FunctionCallbackInfo<Value>& args);
-    static void get_temp_func(const FunctionCallbackInfo<Value>& args);
-    static void set_temp_func(const FunctionCallbackInfo<Value>& args);
-    static void filter_wheel_func(const FunctionCallbackInfo<Value>& args);
-    static void ccd_info_func(const FunctionCallbackInfo<Value>& args);
-    ///static void usb_info_func(const FunctionCallbackInfo<Value>& args);
+    static void New(const Nan::FunctionCallbackInfo<v8::Value>& args);
+    static void shutdown_func(const Nan::FunctionCallbackInfo<v8::Value>& args);
+    static void initialize_func(const Nan::FunctionCallbackInfo<v8::Value>& args);
+    static void start_exposure_func(const Nan::FunctionCallbackInfo<v8::Value>& args);
+    static void stop_exposure_func(const Nan::FunctionCallbackInfo<v8::Value>& args);
+    static void get_temp_func(const Nan::FunctionCallbackInfo<v8::Value>& args);
+    static void set_temp_func(const Nan::FunctionCallbackInfo<v8::Value>& args);
+    static void filter_wheel_func(const Nan::FunctionCallbackInfo<v8::Value>& args);
+    static void ccd_info_func(const Nan::FunctionCallbackInfo<v8::Value>& args);
+    ///static void usb_info_func(const Nan::FunctionCallbackInfo<v8::Value>& args);
 
-    
+
     
     class expo_thread : public thread{
       
@@ -119,7 +130,7 @@ namespace sadira{
     cond new_event;
     int event_id;
     double complete;
-    static Persistent<Function> constructor;
+    //    static Nan::Persistent<Function> constructor;
   private:
     v8::Local<v8::Function> cb;
 
