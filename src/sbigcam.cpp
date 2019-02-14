@@ -11,6 +11,8 @@
 
 #include "../node_modules/node-fits/qk/pngwriter.hh"
 #include "../node_modules/node-fits/math/jsmat_nan.hh"
+// #include "../node_modules/node-fits/qk/pngwriter.hh"
+// #include "../node_modules/node-fits/math/jsmat_nan.hh"
 
 namespace sadira{
 

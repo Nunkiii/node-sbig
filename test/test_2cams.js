@@ -1,4 +1,4 @@
-var fits = require('../node_modules/node-fits/build/Release/fits');
+var fits = require('node-fits/build/Release/fits');
 var sbig = require('../build/Release/sbig');
 
 console.log("Loading driver...");
