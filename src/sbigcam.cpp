@@ -158,7 +158,12 @@ namespace sadira{
   }
   
   void sbig_cam::expo_complete(double pc){
-    //MINFO << "Expo complete " << pc << endl;
+    
+
+    if(pc- sb->complete < .01) return;
+
+    //MINFO << "Expo complete PC= " << pc << " SB->C = " << sb->complete << "DIFF=" << pc- sb->complete << endl;
+    
     sb->new_event.lock();
     sb->event_id=14;
     sb->complete=pc;
@@ -168,6 +173,9 @@ namespace sadira{
 
 
   void sbig_cam::grab_complete(double pc){
+
+    if(pc- sb->complete < .01) return;
+	
     //  MINFO << "Grab complete " << pc << endl;
     sb->new_event.lock();
     sb->event_id=15;
@@ -812,14 +820,14 @@ namespace sadira{
       stringstream ss; ss<<"Initializing exposure exptime="<<obj->exptime<<" nexpo="<<obj->nexpo;
       send_status(isolate, cb,"info",ss.str().c_str(),"expo_proc");
       
-    try{
-      
-      obj->start_exposure();
-      send_status(isolate, cb,"info","Exposure started!","expo_proc");
-      
-      bool waiting=true;
-      obj->event_id=0;
-
+      try{
+	obj->complete=0.0;
+	obj->start_exposure();
+	send_status(isolate, cb,"info","Exposure started!","expo_proc");
+	
+	bool waiting=true;
+	obj->event_id=0;
+	
 
       while(waiting){
 	obj->new_event.lock();
@@ -837,13 +845,16 @@ namespace sadira{
 
 	if(obj->event_id==14) {
 	  char nstr[64]; sprintf(nstr,"%g",obj->complete);
-	  MINFO << "EXPO Progress " << nstr << " cplt = " << obj->pcam->m_dGrabPercent << endl;
+	  //MINFO << "EXPO Progress " << nstr << " cplt = " << obj->pcam->m_dGrabPercent << endl;
+	  if(obj->complete==1.0){
+	    obj->complete=0.0;
+	  }
 	  send_status(isolate, cb,"expo_progress",nstr,"expo_proc");
 	}
 
 	if(obj->event_id==15) {
 	  char nstr[64]; sprintf(nstr,"%g",obj->complete);
-	  MINFO << "GRAB Progress " << nstr << endl;
+	  //MINFO << "GRAB Progress " << nstr << endl;
 	  send_status(isolate, cb,"grab_progress",nstr,"expo_proc");
 	}
 

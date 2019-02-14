@@ -855,16 +855,25 @@ PAR_ERROR CSBIGCam::GrabMain(CSBIGImg *pImg, SBIG_DARK_FRAME dark)
 	pImg->SetImageStartTime(curTime);
 
 	// wait for exposure to complete
+	double gpct;
 	do 
 	{
-		m_dGrabPercent = (double)(time(NULL) - curTime)/m_dExposureTime;
-		//cout << "EXPO" << m_dGrabPercent << endl;
-		expo_complete(m_dGrabPercent);
+	  gpct= (double)(time(NULL) - curTime)/m_dExposureTime;
+		//cout << "EXPO " << m_dGrabPercent << endl;
+
+	  if(gpct != m_dGrabPercent){
+	    m_dGrabPercent =gpct;
+	    
+	    expo_complete(m_dGrabPercent);
+	  }
 	} 
 	while ((err = IsExposureComplete(expComp)) == CE_NO_ERROR && !expComp );
 	
 	EndExposure();
 
+
+	m_dGrabPercent = 0.0;
+	
 	if (err != CE_NO_ERROR)
 	{
 		return err;
