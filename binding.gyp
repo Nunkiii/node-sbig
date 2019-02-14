@@ -1,8 +1,9 @@
 {
     "targets": [{
+
         "target_name": "sbig",
-        "sources": [
-            
+
+        "sources": [            
 	    "./node_modules/node-fits/qk/exception.cpp",
             "./node_modules/node-fits/qk/pngwriter.cpp",
             "./node_modules/node-fits/qk/jpeg_writer.cpp",
@@ -11,9 +12,10 @@
             "src/csbigcam/csbigimg.cpp",
             "src/sbigcam.cpp"
         ],
+
         "conditions": [
+
             ["OS=='linux'", {
-                "ldflags": [],
                 "libraries": ["-fPIC",
                               "-lcfitsio",
                               "-lpng",
@@ -32,10 +34,11 @@
                 ]
             }]
         ],
-        "include_dirs": ["<!(node -e \"require('nan')\")"]
+       "include_dirs": ["<!(node -e 'require(\"nan\")')"],
+
     }],
     "dependencies": {
-        "nan": "^2.7.0",
+        "nan": "*",
         "node-fits": "github:Nunkiii/node-fits"
     }
 }

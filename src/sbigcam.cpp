@@ -9,8 +9,8 @@
 #include <time.h>
 #include "sbig.hh"
 
-#include "../node-fits/qk/pngwriter.hh"
-#include "../node-fits/math/jsmat_nan.hh"
+#include "../node_modules/node-fits/qk/pngwriter.hh"
+#include "../node_modules/node-fits/math/jsmat_nan.hh"
 
 namespace sadira{
 
