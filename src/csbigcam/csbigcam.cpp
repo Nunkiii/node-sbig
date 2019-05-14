@@ -309,9 +309,11 @@ PAR_ERROR CSBIGCam::GetFullFrame(int &nWidth, int &nHeight)
 	rm = m_uReadoutMode & 0xFF;
 	gcip.request = (m_eActiveCCD == CCD_IMAGING ? CCD_INFO_IMAGING : CCD_INFO_TRACKING);
 
+	cout << "CC_GET_CCD_INFO" << endl;
 	if (SBIGUnivDrvCommand(CC_GET_CCD_INFO, &gcip, &gcir) != CE_NO_ERROR)
 	{
-		return m_eLastError;
+	  cerr << "CC_GET_CCD_INFO ERROR !" << endl;
+	  return m_eLastError;
 	}
 
 	if (rm >= gcir.readoutModes)
@@ -856,18 +858,23 @@ PAR_ERROR CSBIGCam::GrabMain(CSBIGImg *pImg, SBIG_DARK_FRAME dark)
 
 	// wait for exposure to complete
 	double gpct;
+	//cout << "EXPO BEGIN" << endl;
 	do 
 	{
 	  gpct= (double)(time(NULL) - curTime)/m_dExposureTime;
-		//cout << "EXPO " << m_dGrabPercent << endl;
+	  //cout << "EXPO% " << gpct*100 << " exptime  " << m_dExposureTime << endl;
 
 	  if(gpct != m_dGrabPercent){
 	    m_dGrabPercent =gpct;
 	    
 	    expo_complete(m_dGrabPercent);
 	  }
+
+	  usleep(200000);
 	} 
 	while ((err = IsExposureComplete(expComp)) == CE_NO_ERROR && !expComp );
+
+	//cout << "EXPO DONE" << endl;
 	
 	EndExposure();
 
@@ -892,7 +899,8 @@ PAR_ERROR CSBIGCam::GrabMain(CSBIGImg *pImg, SBIG_DARK_FRAME dark)
 	srp.width  = m_sGrabInfo.width;
 	srp.readoutMode = m_uReadoutMode;
 	m_eGrabState = (dark == SBDF_LIGHT_ONLY ? GS_DIGITIZING_LIGHT : GS_DIGITIZING_DARK);
-	
+
+	int nnotif=5;
 	if ( (err = StartReadout(srp)) == CE_NO_ERROR ) 
 	{
 		rlp.ccd = m_eActiveCCD;
@@ -905,11 +913,16 @@ PAR_ERROR CSBIGCam::GrabMain(CSBIGImg *pImg, SBIG_DARK_FRAME dark)
 			m_dGrabPercent = (double)(i+1) / m_sGrabInfo.height;
 			err = ReadoutLine(rlp, FALSE, pImg->GetImagePointer() + (long)i * m_sGrabInfo.width);
 			//cout << "Grab" << m_dGrabPercent << endl;
-			grab_complete(m_dGrabPercent);
+
+			if(i%(int)(m_sGrabInfo.height*1.0/nnotif)==0)
+			  grab_complete(m_dGrabPercent);
 		}
+		grab_complete(1.0);
 	}
 	
 	EndReadout();
+
+	cout << "Readout DONE !" << endl;
 	
 	if (err != CE_NO_ERROR)
 	{
@@ -1005,7 +1018,9 @@ PAR_ERROR CSBIGCam::GrabMain(CSBIGImg *pImg, SBIG_DARK_FRAME dark)
 				pLT->tm_hour, pLT->tm_min, pLT->tm_sec);
 		pImg->SetImageNote(cs);
 	}
-	
+
+	cout << "DONE GRAB!" << endl;
+		
 	return CE_NO_ERROR;	
 }
 

@@ -58,9 +58,9 @@ GRAB_STATE;
 
 class CSBIGCam
 {
-private:
-	PAR_ERROR 				m_eLastError;
-	PAR_COMMAND 			m_eLastCommand;
+  //private:
+	public:
+  PAR_COMMAND 			m_eLastCommand;
 	short 						m_nDrvHandle;
 	CAMERA_TYPE 			m_eCameraType;
 	unsigned short 		m_nFirmwareVersion;
@@ -78,6 +78,7 @@ private:
 	bool							m_FastReadout;
 	bool							m_DualChannelMode;
 
+
 	struct GRAB_INFO
 	{
 		unsigned short 	vertNBinning, hBin, vBin;
@@ -86,7 +87,9 @@ private:
 	}
 	m_sGrabInfo;
 
-public:
+
+	PAR_ERROR 				m_eLastError;
+
 	GRAB_STATE 				m_eGrabState;
 	double 						m_dGrabPercent;
 

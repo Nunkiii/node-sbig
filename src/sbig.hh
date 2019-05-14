@@ -13,6 +13,8 @@
 //#include <node_buffer.h>
 
 #include <string>
+#include <mutex>
+
 #include <fitsio.h>
 
 #include <nan.h>
@@ -21,12 +23,13 @@
 #include "csbigcam/csbigcam.h"
 
 #include "../node-fits/qk/mat.hh"
+
 #include "../node-fits/qk/threads.hh"
 //#include "../node-fits/colormap/colormap_interface.hh"
 
 namespace sadira{
   
-  using namespace std;
+  //using namespace std;
   using namespace qk;
   //  using namespace v8;
   using namespace Nan;
@@ -47,8 +50,8 @@ namespace sadira{
     virtual void grab_complete(double pc);
     virtual void expo_complete(double pc);
 
+    PAR_ERROR GrabMainFast(qk::mat<unsigned short>& data);
     void check_error();
-    
     sbig* sb;
   };
 
@@ -62,6 +65,7 @@ namespace sadira{
       static Nan::Persistent<v8::Function> my_constructor;
       return my_constructor;
     }
+
 
   private:
 
@@ -78,6 +82,35 @@ namespace sadira{
     //static Nan::Persistent<Function> constructor;
     QueryUSBResults usb_info();
   };
+
+  struct AsyncWork {
+    uv_async_t async;
+    std::vector<string> msgArr;
+    Nan::Persistent<v8::Object>* obj_persistent;
+    v8::Persistent<v8::Function, v8::CopyablePersistentTraits<v8::Function>> event_callback;
+    v8::Persistent<v8::Promise::Resolver, v8::CopyablePersistentTraits<v8::Promise::Resolver>> resolver;
+    std::vector<v8::Persistent<v8::Function, v8::CopyablePersistentTraits<v8::Function>>> handlers;
+    uv_rwlock_t lock;
+
+  };
+
+  struct cam_event{
+    int event;
+    int cam;
+    double complete;
+    std::string title;
+    std::string message;
+    mat<unsigned short>* image;
+    sbig* obj;
+  };
+
+  struct cam_command{
+    cam_command(int cid):command(cid){}
+    int command;
+    int cam;
+    std::vector<double> args;
+  };
+
   
   class sbig : public Nan::ObjectWrap {
   public:
@@ -93,7 +126,7 @@ namespace sadira{
 
     explicit sbig();
     ~sbig();
-    
+
     void send_status_message(v8::Isolate* isolate, const string& type, const string& message);
     //v8::Handle<node::Buffer> gen_pngtile(v8::Handle<v8::Array>& parameters);
     
@@ -106,33 +139,78 @@ namespace sadira{
     static void set_temp_func(const Nan::FunctionCallbackInfo<v8::Value>& args);
     static void filter_wheel_func(const Nan::FunctionCallbackInfo<v8::Value>& args);
     static void ccd_info_func(const Nan::FunctionCallbackInfo<v8::Value>& args);
+
+    static void monitor_func(const Nan::FunctionCallbackInfo<v8::Value>& args);
+
+
+    void config_cam(v8::Local<v8::Object>& options);
     ///static void usb_info_func(const Nan::FunctionCallbackInfo<v8::Value>& args);
 
 
-    
-    class expo_thread : public thread{
+    /*
+    class expo_thread : public qk::thread{
       
     public:
-      expo_thread(sbig* _sbc):sbc(_sbc),running(0){}
+      expo_thread(sbig* _sbc):
+	sbc(_sbc), running(false)
+      {}
       virtual ~expo_thread(){}
       virtual bool exec();
       sbig* sbc;
-      int running;
+      bool running;
+     
     };
-
+    */
+    
     void close_shutter();
 
     sbig_cam *pcam;
-    string error_message;
-    expo_thread expt;
+
+    
+    //    expo_thread expt;
     void* event;
+
+
+    
+    
   public:
-    cond new_event;
-    int event_id;
-    double complete;
+
+    mat<unsigned short> last_image;
+    
+    // struct eventData{
+    //   int event_id;
+    //   double complete;
+    //   std::string type, message, id, error_message;
+    //   //Nan::Persistent<v8::Function>* cb_persistent;
+    //   Nan::Persistent<v8::Promise::Resolver>* persistent;
+
+    //   Nan::Persistent<v8::Function>* emit;
+    //   Nan::Persistent<v8::Object>* obj_persistent;
+
+    // };
+
+    // eventData edata;
+
+    AsyncWork AW;
+
+
+    std::queue<cam_command*> command_queue;
+    std::queue<cam_event*> event_queue;
+    
+    std::queue<int> produced_nums;
+    std::thread* T;
+    std::mutex m;
+    std::condition_variable cond_var;
+    bool done = false;
+    bool notified = false;
+
+    void exec();
+    void kill_thread();
+    //    cond new_event;
+
     //    static Nan::Persistent<Function> constructor;
-  private:
-    v8::Local<v8::Function> cb;
+    //  private:
+    //    v8::Local<v8::Function> cb;
 
     
     
@@ -151,7 +229,7 @@ namespace sadira{
     void shutdown();
 
     
-    mat<unsigned short> last_image;
+
     
     bool infinite_loop;
 
@@ -160,7 +238,7 @@ namespace sadira{
     
 
     int ccd_width, ccd_height, width, height;
-    string camera_type_string;
+    std::string camera_type_string;
     double ambient_temperature;
     double ccd_temperature;
     vec<double> ccd_pixel_size;
@@ -168,7 +246,7 @@ namespace sadira{
     double ccd_temperature_setpoint;
     double ccd_tempreg_power;
     int continue_expo;
-    mutex continue_expo_mut;
+    std::mutex continue_expo_mut;
     cond last_image_ready_cond;
     int last_image_ready;
   };
