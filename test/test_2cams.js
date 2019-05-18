@@ -1,4 +1,5 @@
-var fits = require('node-fits/build/Release/fits');
+//var fits = require('../../node-fits/build/Release/fits');
+var fits = require('../node_modules/node-fits/build/Release/fits');
 var sbig = require('../build/Release/sbig');
 
 console.log("Loading driver...");
@@ -33,9 +34,9 @@ sbig.usb_info(function(data){
 
 	var cam_options = {
 
-	    exptime : 3.0,
-	    nexpo : 1,
-	    //subframe : [0, 0, 100, 100],
+	    exptime : 10.0,
+	    nexpo : 2,
+	    subframe : [12, 34, 123, 456],
 	    fast_readout : false,
 	    dual_channel : false,
 	    light_frame: true,
@@ -81,17 +82,17 @@ sbig.usb_info(function(data){
 		    cam1.filter_wheel(1);
 		}
 		catch( e){
-		    console.log("Cannot move any filterwheel " + e);
+		    console.log("Cannot move any filter wheel " + e);
 		}
 
 		cam1.shutdown(function(){});
-		
 	    });
 	    
 	}).catch(function (error){
 	    console.log("CAM1 ERROR : " + JSON.stringify(error));
 	});
     }
+
     if(data.length>1)
 	cam2.initialize(data[1].id,function (init_message){
 	    console.log("CAM2 Init : " + JSON.stringify(init_message));
@@ -111,7 +112,6 @@ sbig.usb_info(function(data){
 	    //take_image(cam2,"cam2");
 	});
     
-
     var i=0;
     var iv=setInterval(function(){
 	console.log("Test2Cams Done ! " + i);

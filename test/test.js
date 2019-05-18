@@ -115,7 +115,18 @@ sbig.usb_info(function(data){
 	    
 	    console.log("Cam cooling info = " + JSON.stringify(cam.get_temp()));
 	    
-	    cam.start_exposure(function (expo_message){
+	var cam_options = {
+
+	    exptime : 0.3,
+	    nexpo : 1,
+	    //subframe : [0, 0, 100, 100],
+	    fast_readout : false,
+	    dual_channel : false,
+	    light_frame: true,
+	    readout_mode: "2x2"
+	};
+
+	    cam.start_exposure(cam_options, function (expo_message){
 		
 		console.log("EXPO msg : " + JSON.stringify(expo_message));
 		
