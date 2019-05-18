@@ -4,10 +4,10 @@
         "target_name": "sbig",
 
         "sources": [            
-	    "node_modules/node-fits/qk/exception.cpp",
-            "node_modules/node-fits/qk/pngwriter.cpp",
-            "node_modules/node-fits/qk/jpeg_writer.cpp",
-            "node_modules/node-fits/qk/threads.cpp",
+	    "src/qk/exception.cpp",
+            "src/qk/pngwriter.cpp",
+            "src/qk/jpeg_writer.cpp",
+            "src/qk/threads.cpp",
             "src/csbigcam/csbigcam.cpp",
             "src/csbigcam/csbigimg.cpp",
             "src/sbigcam.cpp"
@@ -38,7 +38,6 @@
 
     }],
     "dependencies": {
-        "nan": "*",
-        "node-fits": "github:Nunkiii/node-fits"
+        "nan": "*"
     }
 }
