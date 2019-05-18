@@ -44,13 +44,15 @@ namespace sadira{
 #define EVT_EXPO_COMPLETE 4
 #define EVT_COOLING_REPORT 5
 #define EVT_NEW_IMAGE 6
+#define EVT_SHUTTER 7
   
 
   
 #define COM_INITIALIZE 0
 #define COM_SHUTDOWN   1
 #define COM_EXPO 2
-#define COM_MONITOR 3  
+#define COM_SHUTTER 3
+#define COM_MONITOR 4  
   
   void setup_cam_events(){
 
@@ -61,11 +63,13 @@ namespace sadira{
     cam_events.insert(std::make_pair(EVT_EXPO_COMPLETE,"expo_complete"));
     cam_events.insert(std::make_pair(EVT_COOLING_REPORT,"cooling_report"));
     cam_events.insert(std::make_pair(EVT_NEW_IMAGE,"new_image"));
+    cam_events.insert(std::make_pair(EVT_SHUTTER,"shutter"));
 
 
     cam_commands.insert(std::make_pair(COM_INITIALIZE,"initialize"));
     cam_commands.insert(std::make_pair(COM_SHUTDOWN, "shutdown"));
     cam_commands.insert(std::make_pair(COM_EXPO, "exposure"));
+    cam_commands.insert(std::make_pair(COM_SHUTTER, "shutter"));
     cam_commands.insert(std::make_pair(COM_MONITOR, "monitor"));
     
   }
@@ -78,6 +82,159 @@ namespace sadira{
       throw qk::exception("SBIG Error : "+this->GetErrorString(err));    
     
   }
+
+  PAR_ERROR sbig_cam::GrabSetup()//CSBIGImg *pImg, SBIG_DARK_FRAME dark)
+  {
+    GetCCDInfoParams 	gcip;
+    GetCCDInfoResults0 	gcir;
+    unsigned short 		es;
+    string 				s;
+    
+    // Get the image dimensions
+    m_eGrabState   = GS_DAWN;
+	m_dGrabPercent = 0.0;
+	m_sGrabInfo.vertNBinning = m_uReadoutMode >> 8;
+
+	if (m_sGrabInfo.vertNBinning == 0)
+	{
+		m_sGrabInfo.vertNBinning = 1;
+	}
+	m_sGrabInfo.rm   = m_uReadoutMode & 0xFF;
+	m_sGrabInfo.hBin = m_sGrabInfo.vBin = 1;
+
+	if (m_eCameraType == STI_CAMERA)
+	{
+		if (m_sGrabInfo.rm < 2)
+		{
+			m_sGrabInfo.hBin = m_sGrabInfo.vBin = (m_sGrabInfo.rm + 1);
+		}
+		else if (m_sGrabInfo.rm < 4)
+		{
+			m_sGrabInfo.hBin = (m_sGrabInfo.rm - 1);
+			m_sGrabInfo.vBin = m_sGrabInfo.vertNBinning;
+		}
+	}
+	else
+	{
+		if (m_sGrabInfo.rm < 3)
+		{
+			m_sGrabInfo.hBin = m_sGrabInfo.vBin = (m_sGrabInfo.rm + 1);
+		}
+		else if (m_sGrabInfo.rm < 6)
+		{
+			m_sGrabInfo.hBin = (m_sGrabInfo.rm - 5);
+			m_sGrabInfo.vBin = m_sGrabInfo.vertNBinning;
+		}
+		else if (m_sGrabInfo.rm < 9)
+		{
+			m_sGrabInfo.hBin = m_sGrabInfo.vBin = (m_sGrabInfo.rm - 8);
+		}
+		else if (m_sGrabInfo.rm == 9)
+		{
+			m_sGrabInfo.hBin = m_sGrabInfo.vBin = 9;
+		}
+	}
+	gcip.request = (m_eActiveCCD == CCD_IMAGING ? CCD_INFO_IMAGING : CCD_INFO_TRACKING);
+
+	if (SBIGUnivDrvCommand(CC_GET_CCD_INFO, &gcip, &gcir) != CE_NO_ERROR)
+	{
+		return m_eLastError;
+	}
+
+	if (m_sGrabInfo.rm >= gcir.readoutModes)
+	{
+		return CE_BAD_PARAMETER;
+	}
+
+	if (m_nSubFrameWidth == 0 || m_nSubFrameHeight == 0)
+	{
+		m_sGrabInfo.left  = m_sGrabInfo.top = 0;
+		m_sGrabInfo.width = gcir.readoutInfo[m_sGrabInfo.rm].width;
+
+		if (m_eCameraType == STI_CAMERA)
+		{
+			if (m_sGrabInfo.rm >= 2 && m_sGrabInfo.rm <= 3)
+			{
+				m_sGrabInfo.height = gcir.readoutInfo[m_sGrabInfo.rm-2].height / m_sGrabInfo.vertNBinning;
+			}
+			else
+			{
+				m_sGrabInfo.height = gcir.readoutInfo[m_sGrabInfo.rm].height / m_sGrabInfo.vertNBinning;
+			}
+		}
+		else
+		{
+			if (m_sGrabInfo.rm >= 3 && m_sGrabInfo.rm <= 5)
+			{
+				m_sGrabInfo.height = gcir.readoutInfo[m_sGrabInfo.rm-3].height / m_sGrabInfo.vertNBinning;
+			}
+			else
+			{
+				m_sGrabInfo.height = gcir.readoutInfo[m_sGrabInfo.rm].height / m_sGrabInfo.vertNBinning;
+			}
+		}
+	}
+	else
+	{
+		m_sGrabInfo.left 	= m_nSubFrameLeft;
+		m_sGrabInfo.top 	= m_nSubFrameTop;
+		m_sGrabInfo.width 	= m_nSubFrameWidth;
+		m_sGrabInfo.height 	= m_nSubFrameHeight;
+	}
+
+	// try to allocate the image buffer
+	// if (!pImg->AllocateImageBuffer(m_sGrabInfo.height, m_sGrabInfo.width))
+	// {
+	// 	m_eGrabState = GS_IDLE;
+	// 	return CE_MEMORY_ERROR;
+	// }
+	// pImg->SetImageModified(TRUE);
+
+	// // initialize some image header params
+	// pImg->SetEachExposure(m_dExposureTime);
+	// pImg->SetEGain(hex2double(gcir.readoutInfo[m_sGrabInfo.rm].gain));
+	// pImg->SetPixelHeight(hex2double(gcir.readoutInfo[m_sGrabInfo.rm].pixelHeight) * m_sGrabInfo.vertNBinning / 1000.0);
+	// pImg->SetPixelWidth(hex2double(gcir.readoutInfo[m_sGrabInfo.rm].pixelWidth) / 1000.0);
+	es = ES_DCS_ENABLED | ES_DCR_DISABLED | ES_AUTOBIAS_ENABLED;
+
+	if (m_eCameraType == ST5C_CAMERA)
+	{
+		es |= (ES_ABG_CLOCKED | ES_ABG_RATE_MED);
+	}
+	else if (m_eCameraType == ST237_CAMERA)
+	{
+		es |= (ES_ABG_CLOCKED | ES_ABG_RATE_FIXED);
+	}
+	else if (m_eActiveCCD == CCD_TRACKING)
+	{
+		es |= (ES_ABG_CLOCKED | ES_ABG_RATE_MED);
+	}
+	else
+	{
+		es |= ES_ABG_LOW;
+	}
+	// pImg->SetExposureState(es);
+	// pImg->SetExposureTime(m_dExposureTime);
+	// pImg->SetNumberExposures(1);
+	// pImg->SetReadoutMode(m_uReadoutMode);
+
+	s = GetCameraTypeString();
+	if (m_eCameraType == ST5C_CAMERA || ( m_eCameraType == ST237_CAMERA && s.find("ST-237A", 0) == string::npos))
+	{
+	  //pImg->SetSaturationLevel(4095);
+	}
+	else
+	{
+	  //pImg->SetSaturationLevel(65535);
+	}
+	s = gcir.name;
+	MINFO << "cam model " << gcir.name << endl;
+	// pImg->SetCameraModel(s);
+	// pImg->SetBinning(m_sGrabInfo.hBin, m_sGrabInfo.vBin);
+	// pImg->SetSubFrame(m_sGrabInfo.left, m_sGrabInfo.top);
+	return CE_NO_ERROR;
+}
+
 
 
   PAR_ERROR sbig_cam::GrabMainFast(qk::mat<unsigned short>& data){
@@ -92,6 +249,8 @@ namespace sadira{
     MY_LOGICAL 					expComp;
     
     EndExposure();
+
+
     
     if (m_eLastError != CE_NO_ERROR && m_eLastError != CE_NO_EXPOSURE_IN_PROGRESS)
 	{
@@ -148,7 +307,8 @@ namespace sadira{
 	srp.height = m_sGrabInfo.height;
 	srp.width  = m_sGrabInfo.width;
 	srp.readoutMode = m_uReadoutMode;
-	m_eGrabState = GS_DIGITIZING_LIGHT;
+
+	data.redim(m_sGrabInfo.width,m_sGrabInfo.height);m_eGrabState = GS_DIGITIZING_LIGHT;
 
 	int nnotif=5;
 	if ( (err = StartReadout(srp)) == CE_NO_ERROR ) 
@@ -603,23 +763,6 @@ namespace sadira{
   
 
   
-//   void sbig::send_status(const string& type, const string& message, const string& id){
-// MERROR << "deprecated" << endl;
-//     v8::Local<v8::Function> cb= Nan::New(*edata.emit);
-//     const unsigned argc = 1;
-
-//     v8::Handle<v8::Object> msg = Nan::New<v8::Object>();//.ToLocalChecked(); 
-//     msg->Set(Nan::New<v8::String>("type").ToLocalChecked(),Nan::New<v8::String>(type.c_str()).ToLocalChecked());
-//     msg->Set(Nan::New<v8::String>("content").ToLocalChecked(),Nan::New<v8::String>(message.c_str()).ToLocalChecked());  
-//     if(id!="")
-//       msg->Set(Nan::New<v8::String>("id").ToLocalChecked(),Nan::New<v8::String>(id.c_str()).ToLocalChecked());  
-//     v8::Handle<v8::Value> msgv(msg);
-//     v8::Handle<v8::Value> argv[argc] = { msgv };
-
-//     //cb->Call(argc, argv );    
-//   }
-
-  
   void sbig::send_status_message(v8::Isolate* isolate, const string& type, const string& message){
 MERROR << "deprecated" << endl;
     const unsigned argc = 1;
@@ -868,44 +1011,6 @@ MERROR << "deprecated" << endl;
     args.GetReturnValue().Set(args.This());
   }
 
-  /*
-  void sbig::sub_frame_func(const Nan::FunctionCallbackInfo<v8::Value>& args){
-  }
-
-  void sbig::set_filter_wheel_func(const Nan::FunctionCallbackInfo<v8::Value>& args){
-  }
-  */
-
-
-
-      
-
-
-    
-    //    uv_timer_t* handle = new uv_timer_t;
-    //    handle->data = persistent;
-    //    uv_timer_init(uv_default_loop(), handle);
-    
-    // use capture-less lambda for c-callback
-    /*
-    auto timercb = [](uv_timer_t* handle) -> void {
-      Nan::HandleScope scope;
-      
-      auto persistent = static_cast<ResolverPersistent*>(handle->data);
-      
-      uv_timer_stop(handle);
-      uv_close(reinterpret_cast<uv_handle_t*>(handle),
-	       [](uv_handle_t* handle) -> void {delete handle;});
-      
-      auto resolver = Nan::New(*persistent);
-      resolver->Resolve(Nan::New("invoked").ToLocalChecked());
-      
-      persistent->Reset();
-      delete persistent;
-      };
-    
-    */
-
   void sbig::shutdown_func(const Nan::FunctionCallbackInfo<v8::Value>& args){
     v8::Isolate* isolate = args.GetIsolate();
     
@@ -935,6 +1040,61 @@ MERROR << "deprecated" << endl;
     
   }
 
+  void sbig::shutter_func(const Nan::FunctionCallbackInfo<v8::Value>& args){
+    v8::Isolate* isolate = args.GetIsolate();
+    
+    const char* usage="usage: initialize( device )";
+
+    if (args.Length() != 1) {
+      isolate->ThrowException(v8::Exception::Error(v8::String::NewFromUtf8(isolate, usage)));
+      return;
+    }
+    
+    sbig* obj = Nan::ObjectWrap::Unwrap<sbig>(args.This());
+
+    auto resolver = v8::Promise::Resolver::New(isolate);
+    auto promise = resolver->GetPromise();
+
+    obj->AW.resolver=v8::Persistent<v8::Promise::Resolver, v8::CopyablePersistentTraits<v8::Promise::Resolver>>(isolate, resolver);
+    //obj->AW.handlers.push_back(v8::Persistent<v8::Function, v8::CopyablePersistentTraits<v8::Function>>(isolate, cb));
+
+    
+    v8::Local<v8::Number> usb_id=v8::Local<v8::Number>::Cast(args[0]);    
+
+    try{
+      //double uid=usb_id->Value();
+      cam_command* cc=new cam_command(COM_SHUTTER);
+      cc->args.push_back(usb_id->Value());
+      
+      std::unique_lock<std::mutex> lock(obj->m);
+
+      obj->command_queue.push(cc);
+      obj->notified = true;
+      
+
+      //cout << "DGrab async...this is " << obj << endl;
+      //uv_rwlock_wrlock(&obj->AW.lock);
+      //cout << "DGrab async...locked" << endl;
+      //obj->AW.msgArr.push_back("HELLOOOOO from startfunc");
+      //uv_rwlock_wrunlock(&obj->AW.lock);
+      //cout << "DGrab async..unlocked." << endl;
+
+      obj->cond_var.notify_one();
+      
+
+
+      //      obj->initialize(usb_id->Value());
+      //    send_status_cb(cb,"success","Camera is ready","init");
+    }
+    catch (qk::exception& e){
+      resolver->Reject(Nan::New("config_cam: " + e.mess).ToLocalChecked());
+      //      send_status_cb(cb,"error",e.mess,"init");
+    }
+
+    args.GetReturnValue().Set(promise);
+
+  }
+  
   void sbig::initialize_func(const Nan::FunctionCallbackInfo<v8::Value>& args){
 
     
@@ -954,30 +1114,10 @@ MERROR << "deprecated" << endl;
 
     //obj->AW.handlers.push_back(v8::Persistent<v8::Function, v8::CopyablePersistentTraits<v8::Function>>(isolate, cb));
 
+    obj->AW.resolver=v8::Persistent<v8::Promise::Resolver, v8::CopyablePersistentTraits<v8::Promise::Resolver>>(isolate, resolver);
     
     v8::Local<v8::Number> usb_id=v8::Local<v8::Number>::Cast(args[0]);    
 
-    //v8::Local<v8::Function> cb_func=To<v8::Function>(args[1]).ToLocalChecked(); //v8::Local<v8::Function>::Cast(args[1]);    
-
-    //    cout << "Getting callback!" << endl;
-    //v8::Local<Nan::Callback> cb = Nan::New(obj->edata.emit);
-
-    //Nan::Callback* cb = new Nan::Callback(To<v8::Function>(args[1]).ToLocalChecked());
-    // Nan::Callback cb(cb_func);
-    
-    //    cout << "Getting callback!" << endl;
-    //    cb->SetFunction(To<v8::Function>(args[1]).ToLocalChecked());
-    //    v8::Local<Nan::Callback>* ccb = new v8::Local<Nan::Callback>(); //Nan::New(obj->edata.emit);
-    // MINFO << "Set func...." << endl;
-    // (*ccb)->SetFunction(cb_func);
-    //    v8::Local<Nan::Callback>* ccb = new v8::Local<Nan::Callback>(new Nan::Callback(args[1].As<v8::Function>()));
-
-    //    MINFO << "Send status...." << endl;
-    //send_status_cb(cb,"info","Initializing camera ","init");
-
-    obj->AW.resolver=v8::Persistent<v8::Promise::Resolver, v8::CopyablePersistentTraits<v8::Promise::Resolver>>(isolate, resolver);
-    
-    MINFO << "Send status....OK" << endl;
     try{
       //double uid=usb_id->Value();
       cam_command* cc=new cam_command(COM_INITIALIZE);
@@ -1004,6 +1144,7 @@ MERROR << "deprecated" << endl;
       //    send_status_cb(cb,"success","Camera is ready","init");
     }
     catch (qk::exception& e){
+      resolver->Reject(Nan::New("initialize_func: " + e.mess).ToLocalChecked());
       //      send_status_cb(cb,"error",e.mess,"init");
     }
 
@@ -1011,96 +1152,83 @@ MERROR << "deprecated" << endl;
     //    args.GetReturnValue().Set(args.This());
   }
 
-  static AsyncWork* AW = new AsyncWork();
+  
+  // static AsyncWork* AW = new AsyncWork();
 
-  std::queue<int> produced_nums;
-  std::mutex m;
-  std::condition_variable cond_var;
-  bool done = false;
-  bool notified = false;
+  // std::queue<int> produced_nums;
+  // std::mutex m;
+  // std::condition_variable cond_var;
+  // bool done = false;
+  // bool notified = false;
   
 
-  void tfunc(){
-    std::this_thread::sleep_for(std::chrono::seconds(5));
-    for (int i=0;i<10;i++){
-      cout << "Hello from thread ! i= "<<i << endl;
-      std::this_thread::sleep_for(std::chrono::seconds(1));
-      std::unique_lock<std::mutex> lock(m);
-      std::cout << "producing " << i << '\n';
-      produced_nums.push(i);
-      notified = true;
+  // void tfunc(){
+  //   std::this_thread::sleep_for(std::chrono::seconds(5));
+  //   for (int i=0;i<10;i++){
+  //     cout << "Hello from thread ! i= "<<i << endl;
+  //     std::this_thread::sleep_for(std::chrono::seconds(1));
+  //     std::unique_lock<std::mutex> lock(m);
+  //     std::cout << "producing " << i << '\n';
+  //     produced_nums.push(i);
+  //     notified = true;
 
 
-      cout << "Grab async..." << endl;
-      uv_rwlock_wrlock(&AW->lock);
-      cout << "Grab async...locked" << endl;
-      AW->msgArr.push_back("HELLOOOOO");
-      uv_rwlock_wrunlock(&AW->lock);
-      cout << "Grab async..unlocked." << endl;
-      // Wakeup the event loop to handle stored messages.
-      // In this example, the function "invokeHandlers" will be called then.
-      uv_async_send(&AW->async);
+  //     cout << "Grab async..." << endl;
+  //     uv_rwlock_wrlock(&AW->lock);
+  //     cout << "Grab async...locked" << endl;
+  //     AW->msgArr.push_back("HELLOOOOO");
+  //     uv_rwlock_wrunlock(&AW->lock);
+  //     cout << "Grab async..unlocked." << endl;
+  //     // Wakeup the event loop to handle stored messages.
+  //     // In this example, the function "invokeHandlers" will be called then.
+  //     uv_async_send(&AW->async);
     
-      cout << "Grab async...sent!" << endl;
+  //     cout << "Grab async...sent!" << endl;
       
       
-
-      // // Invoke all the stored handlers.
-      // v8::Local<v8::Value> argv[] = {}; //err, rst};
-      // v8::Isolate* isolate=v8::Isolate::GetCurrent();
-
-      // cout << "Sending CB..." << AW->handlers.size()<< " iusolate " << isolate << endl;
-      // for (uint32_t j=0; j<AW->handlers.size(); j++){
-      // 	v8::Local<v8::Function> cbf=v8::Local<v8::Function>::New(isolate, AW->handlers[j]);
-      // 	cout << "Calling JS CB" << endl;
-      // 	cbf->Call(isolate->GetCurrentContext()->Global(), 0, argv);
-      // 	cout << "Calling JS CB OK!" << endl;	
-      // }
-
-      // cout << "Sending CB Done..." << endl;
       
-      cond_var.notify_one();
-    }
-    done = true;
-    cond_var.notify_one();
-  }
+  //     cond_var.notify_one();
+  //   }
+  //   done = true;
+  //   cond_var.notify_one();
+  // }
 
-  //  std::thread T(tfunc);
+  // //  std::thread T(tfunc);
 
-  void cam_tfunc(sbig* o);
+  // void cam_tfunc(sbig* o);
 
-  class cam_object {
-  public:
-    cam_object(sbig* sb):sbg(sb){
-      //      T = new std::thread(cam_tfunc, this);
-    }
-    ~cam_object(){}
-    void exec(){
+  // class cam_object {
+  // public:
+  //   cam_object(sbig* sb):sbg(sb){
+  //     //      T = new std::thread(cam_tfunc, this);
+  //   }
+  //   ~cam_object(){}
+  //   void exec(){
     
-      std::unique_lock<std::mutex> lock(m);
-      while (!done) {
-	while (!notified) {  // loop to avoid spurious wakeups
-	  cond_var.wait(lock);
-            }   
-	while (!produced_nums.empty()) {
-	  std::cout << "consuming " << produced_nums.front() << '\n';
-	  produced_nums.pop();
-	}   
-	notified = false;
-      }   
+  //     std::unique_lock<std::mutex> lock(m);
+  //     while (!done) {
+  // 	while (!notified) {  // loop to avoid spurious wakeups
+  // 	  cond_var.wait(lock);
+  //           }   
+  // 	while (!produced_nums.empty()) {
+  // 	  std::cout << "consuming " << produced_nums.front() << '\n';
+  // 	  produced_nums.pop();
+  // 	}   
+  // 	notified = false;
+  //     }   
       
-    }
-    sbig* sbg;
+  //   }
+  //   sbig* sbg;
 
     
-    std::queue<int> produced_nums;
-    std::thread* T;
-    std::mutex m;
-    std::condition_variable cond_var;
-    bool done = false;
-    bool notified = false;
+  //   std::queue<int> produced_nums;
+  //   std::thread* T;
+  //   std::mutex m;
+  //   std::condition_variable cond_var;
+  //   bool done = false;
+  //   bool notified = false;
     
-  };
+  // };
 
   void cam_tfunc(sbig* o){
     o->exec();
@@ -1174,58 +1302,6 @@ MERROR << "deprecated" << endl;
 	  cam_command* com=command_queue.front();
 	  command_queue.pop();
 	  cam_handlers[com->command](com, this);
-	  
-	  // switch(com->command){
-	  // case COM_INITIALIZE:
-	  //   came=new cam_event();
-	  //   came->obj=this;
-	  //   came->event=EVT_INIT_REPORT;
-	    
-	  //   try{
-	  //     initialize(com->args[0]);
-	  //     came->title="success";
-	  //     came->message="Camera is ready";
-	  //   }
-	  //   catch (qk::exception& e){
-	  //     came->title="error";
-	  //     came->message=e.mess;
-	  //   }
-	  //   event_queue.push(came);
-	  //   AW.async.data = this;
-	  //   uv_async_send(&AW.async);
-	      
-	  //   break;
-	  // case COM_EXPO:
-	  //   came=new cam_event();
-	  //   came->obj=this;
-	  //   came->event=EVT_EXPO_COMPLETE;
-	  //   try{
-	  //     really_take_exposure();
-	  //     came->title="success";
-	  //     came->message="Exposure terminated";
-
-	  //     cam_event* came2=new cam_event();
-	  //     came2->obj=this;
-	  //     came2->event=EVT_NEW_IMAGE;
-	  //     event_queue.push(came2);
-	  //     AW.async.data = this;
-	  //     uv_async_send(&AW.async);
-	      
-	  //   }
-	  //   catch(qk::exception& e){
-	  //     came->title="error";
-	  //     came->message=e.mess;
-	  //     MERROR << "Error in exposure thread :" << e.mess << endl;
-	  //   }
-	  //   event_queue.push(came);
-	  //   AW.async.data = this;
-	  //   uv_async_send(&AW.async);
-
-	  //   break;
-	  // default:
-	  //   break;
-	  // };
-	  
 	  delete com;
 	}   
 	notified = false;
@@ -1233,76 +1309,6 @@ MERROR << "deprecated" << endl;
       //      cout << "SBIG Thread FINISHED! "<< this << endl;
       
   }
-  
-  
-  // void grab_image_async (uv_work_t *req);
-
-
-
-
-
-
-  // void grab_image_async (uv_work_t *req) {
-
-  //   sbig* obj= (sbig*)req->data;
-	  
-  //   cout << "Grab async..." << endl;
-  //   uv_rwlock_wrlock(&obj->AW.lock);
-  //   cout << "Grab async...locked" << endl;
-  //   obj->AW.msgArr.push_back("HELLOOOOO");
-  //   uv_rwlock_wrunlock(&obj->AW.lock);
-  //   cout << "Grab async..unlocked." << endl;
-  //   // Wakeup the event loop to handle stored messages.
-  //     // In this example, the function "invokeHandlers" will be called then.
-  //   //    uv_async_send(&AW->async);
-    
-  //     cout << "Grab async...sent!" << endl;
-  //     return;
-  //     //int size = *((int*) req->data);
-
-  //     //      async.data = (void*) obj;
-      
-  //     obj->edata.complete=0.0;
-  //     obj->edata.event_id=0;
-  //     obj->edata.type="info";
-  //     obj->edata.message="Exposure started!";
-  //     obj->edata.id="expo_proc";
-
-
-  //     //      uv_async_send(&async);
-
-  //     //      uv_close((uv_handle_t*) &async, NULL);
-  //     // uv_close(reinterpret_cast<uv_handle_t*>(handle),
-  //     // 	       [](uv_handle_t* handle) -> void {delete handle;});
-
-      
-  //     try{
-
-  // 	//	obj->really_take_exposure();
-
-  // 	obj->edata.event_id=13;
-  // 	//uv_async_send(&async);
-
-	
-  //     }
-  //     catch(qk::exception& e){
-  // 	MERROR << "Error in exposure thread :" << e.mess << endl;
-  // 	obj->edata.error_message=e.mess;
-  // 	//sbc->new_event.lock();
-  // 	//running=0;
-  // 	obj->edata.event_id=666;
-  // 	//uv_async_send(&async);
-	
-  // 	//	sbc->new_event.broadcast();
-  // 	//	sbc->new_event.unlock();
-	
-  //     }
-      
-      
-  //     //MINFO << "GRAB async done !" << endl;
-
-      
-  // }
   
 
   void setup_cam_handlers(){
@@ -1356,6 +1362,85 @@ MERROR << "deprecated" << endl;
 	  uv_async_send(&obj->AW.async);
 	}));
 
+    cam_handlers.insert(std::make_pair(COM_MONITOR,[](cam_command* com,sbig* obj){
+
+	  cam_event* came;
+	  came=new cam_event();
+	  came->obj=obj;
+	  came->event=EVT_EXPO_COMPLETE;
+	  int expo=0;
+	  
+	  try{
+	    //obj->monitor();
+	    came->title="success";
+	    came->message="Monitor terminated";
+	    qk::mat<unsigned short> data;
+
+	    obj->continue_expo=1;
+	    
+	    obj->check_error();
+	    obj->pcam->GrabSetup();
+	    while(obj->continue_expo){
+	      
+	      //MINFO << "Accumulating photons. Exptime="<<exptime << " Expo  "<< (expo+1) << "/" << nexpo<<endl;
+	      
+	      //void CSBIGCam::GetGrabState(GRAB_STATE &grabState, double &percentComplete)
+	      
+	      obj->pcam->GrabMainFast(obj->last_image);
+	      obj->check_error();
+	      
+	      
+	      //new_event.lock();
+	      //obj->last_image=data;
+	      //	      last_image.redim(pImg->GetWidth(), pImg->GetHeight());    
+	      //last_image.rawcopy(pImg->GetImagePointer(),last_image.dim);
+	      cam_event* came2=new cam_event();
+	      came2->obj=obj;
+	      came2->event=EVT_NEW_IMAGE;
+	      obj->event_queue.push(came2);
+	      obj->AW.async.data = obj;
+	      uv_async_send(&obj->AW.async);
+	      
+	      expo++;
+	      
+	    }
+	    
+	    obj->continue_expo=0;
+	    obj->close_shutter();
+	  }
+	  catch(qk::exception& e){
+	    came->title="error";
+	    came->message=e.mess;
+	    MERROR << "Error in exposure thread :" << e.mess << endl;
+	  }
+	  obj->event_queue.push(came);
+	  obj->AW.async.data = obj;
+	  uv_async_send(&obj->AW.async);
+	}));
+    
+    cam_handlers.insert(std::make_pair(COM_SHUTTER,[](cam_command* com,sbig* obj){
+	  cam_event* came;
+	  came=new cam_event();
+	  came->obj=obj;
+	  came->event=EVT_SHUTTER;
+	  
+	  try{
+	    MINFO << "Changing shutter to position " << com->args[0] << endl;
+	    //obj->initialize(com->args[0]);
+	    
+	    came->title="success";
+	    came->message="Shutter moved";
+	  }
+	  catch (qk::exception& e){
+	    came->title="error";
+	    came->message=e.mess;
+	  }
+	  obj->event_queue.push(came);
+	  obj->AW.async.data = obj;
+	  uv_async_send(&obj->AW.async);
+	}
+	));
+
   }
 
   
@@ -1384,6 +1469,28 @@ MERROR << "deprecated" << endl;
 	  
 	}));
       
+    event_handlers.insert(std::make_pair(EVT_SHUTTER,[](cam_event* cevent, sbig* obj, v8::Isolate* isolate){
+	if(!obj->AW.resolver.IsEmpty()){
+	  auto resolver=v8::Local<v8::Promise::Resolver>::New(isolate, obj->AW.resolver);
+	  v8::Handle<v8::Object> msg = Nan::New<v8::Object>();//.ToLocalChecked(); 
+	  msg->Set(Nan::New<v8::String>("type").ToLocalChecked(),Nan::New<v8::String>(cevent->title).ToLocalChecked());
+	  msg->Set(Nan::New<v8::String>("content").ToLocalChecked(),Nan::New<v8::String>(cevent->message).ToLocalChecked());  
+	    
+	  if(cevent->title=="error"){
+	      
+	    resolver->Reject(msg);
+	  }
+	  else{
+	    resolver->Resolve(msg);      
+	  }
+	    
+	  obj->AW.resolver.Reset();
+	}
+	
+	}));
+    
+    
+    
     event_handlers.insert(std::make_pair(EVT_EXPO_COMPLETE,[](cam_event* cevent, sbig* obj, v8::Isolate* isolate){
 	  if(!obj->AW.resolver.IsEmpty()){
 	    auto resolver=v8::Local<v8::Promise::Resolver>::New(isolate, obj->AW.resolver);
@@ -1428,27 +1535,11 @@ MERROR << "deprecated" << endl;
 	    v8::Handle<v8::Value> fff=obj_pers->Get(Nan::New<v8::String>("last_image").ToLocalChecked());
 	    jsmat<unsigned short>* last_i = Nan::ObjectWrap::Unwrap<jsmat<unsigned short> >(v8::Handle<v8::Object>::Cast(fff));
 	    jsmat<unsigned short>* jsmv_unw = Nan::ObjectWrap::Unwrap<jsmat<unsigned short> >(v8::Handle<v8::Object>::Cast(jsmo));
-	    //cout << "Hello COPY" << endl;
-
-	    // 
-	  
-	    //	  sbig* objuw = Nan::ObjectWrap::Unwrap<sbig>(obj_pers);
-
-	    //jsmat<unsigned short>* last_i = jsmat_unwrap<unsigned short>(Handle<v8::Object>::Cast(fff)); //new jsmat<unsigned short>();
-	    //jsmat<unsigned short>* jsmv_unw = jsmat_unwrap<unsigned short>(Handle<v8::Object>::Cast(jsmo)); //new jsmat<unsigned short>();
-	  
-	    //cout << "COPY "<< jsmv_unw << " LIMG w ="<<obj->last_image.dims[0]<< endl;
-
-	    cout << "Hello COPY" << endl;
-	    //cout << "COPY jsmv w="<< jsmv_unw->dims[0] << endl;
-	  
+	    
 	    (*jsmv_unw)=obj->last_image;
-	    //cout << "Hello COPY 2" << endl;
+	    cout << "Hello COPY 2" << obj->last_image.dims[0] << ", "<< obj->last_image.dims[1] << "  " << endl;
 	    (*last_i)=obj->last_image;
 	    //cout << "COPY OK w="<< jsmv_unw->dims[0] << endl;
-	    
-	    cout << "Hello COPY OK" << endl;
-
 	    
 	    // v8::Handle<v8::Value> h_fimage=obj_pers->Get(Nan::New<v8::String>("last_image_float").ToLocalChecked());
       	    // jsmat<float>* fimage = Nan::ObjectWrap::Unwrap<jsmat<float> >(v8::Handle<v8::Object>::Cast(h_fimage)); //new jsmat<unsigned short>();
@@ -1468,7 +1559,7 @@ MERROR << "deprecated" << endl;
       	    v8::Handle<v8::Value> msgv(msg);
       	    v8::Handle<v8::Value> argv[argc] = { msgv };
 
-      	    cout << "Emit Image event " << endl;
+      	    MINFO << "Emit Image event " << endl;
       	    cb->Call(isolate->GetCurrentContext()->Global(), argc, argv );    
 
 
@@ -1532,7 +1623,7 @@ MERROR << "deprecated" << endl;
 	  v8::Handle<v8::Value> msgv(msg);
 	  v8::Handle<v8::Value> argv[argc] = { msgv };
 	
-	  cout << "Emit Image event " << endl;
+	  //cout << "Emit Image event " << endl;
 	  cb->Call(isolate->GetCurrentContext()->Global(), argc, argv );    
 	}	  
 	}));
@@ -1562,51 +1653,14 @@ MERROR << "deprecated" << endl;
 	event_name = it->second;
       }
 
-      MINFO << "Calling handlers for " << event_name << endl;
+      //      MINFO << "Calling handlers for " << event_name << endl;
       event_handlers[cevent->event](cevent, obj, isolate);
-      MINFO << "Calling handlers for " << event_name << "done" << endl;
+      //MINFO << "Calling handlers for " << event_name << "done" << endl;
       delete cevent;
     }
       
       
   }
-
-  // void grab_after (uv_work_t* req, int status) {
-  //   cout << "Grab after !" << endl;
-  //   return;
-  //     //      MINFO << "GRAB AFTER " << endl;
-  //     Nan::HandleScope scope;
-  //     auto obj_raw = static_cast<sbig*>(req->data);
-
-
-
-
-  //     //Nan::Callback& cb =obj_raw->edata.emit;
-  //     //auto obj_pers = static_cast<ResolverPersistent*>(obj_raw->edata.obj_persistent);
-  //     //      MINFO << "Delete persistent " << endl;
-  //     auto persistent = static_cast<Nan::Persistent<v8::Promise::Resolver>*>(obj_raw->edata.persistent);
-  //     auto resolver = Nan::New(*persistent);
-  //     resolver->Resolve(Nan::New("invoked").ToLocalChecked());
-      
-  //     //      MINFO << "Delete persistent " << endl;
-  //     persistent->Reset();
-  //     // MINFO << "Delete persistent " << endl;
-  //     delete persistent;
-  //     // MINFO << "Delete persistent " << endl;
-
-  //     MINFO << "Resolve DOne start_expo_func !" << endl; 
-
-      
-      
-  //     // uv_close(reinterpret_cast<uv_handle_t*>(req),
-  //     // 	       [](uv_handle_t* r) -> void {
-  //     // 		 MINFO << "UV CLOSE! r = "<< r << endl;
-  //     // 		 delete r;
-
-  //     // 	       });
-      
-  //     //      uv_close((uv_handle_t*) &async, NULL);
-  //   }
 
 
 
@@ -1704,160 +1758,6 @@ MERROR << "deprecated" << endl;
   
   void sbig::start_exposure_func(const Nan::FunctionCallbackInfo<v8::Value>& args){
     
-    // Nan::HandleScope scope;
-      // sbig* obj_raw=static_cast<sbig*>(handle->data);
-      // eventData* edata = &obj_raw->edata;
-
-      // cout << "Grab event ! " << edata->event_id << endl;
-
-      //      return;
-      
-      // auto obj_pers=Nan::New(*edata->obj_persistent);
-      
-      // sbig* obj = Nan::ObjectWrap::Unwrap<sbig>(obj_pers);
-      
-      // auto persistent = static_cast<Nan::Persistent<v8::Promise::Resolver>*>(edata->persistent);
-      // auto resolver = Nan::New(*persistent);
-
-      // //      edata.emit.SetFunction(v8::Local<v8::Function>::Cast(args[0]));
-      // v8::Local<v8::Function> cb =Nan::New(*edata->emit);
-      // //auto cb = Nan::New(*cb_persistent);
-
-      // v8::Isolate *isolate = v8::Isolate::GetCurrent();
-      // v8::Local<v8::Context> context = isolate->GetCurrentContext();
-
-      
-      // char nstr[64]; 
-
-
-
-      //      std::function<void ()> capture_end=[obj, &obj_pers,&cb] () {
-
-      // if(edata->event_id==1111){
-      // 	MINFO << "Event 11: finished !" << endl;
-	
-      // 	v8::Local<v8::Function> jsu_cons = Nan::New<v8::Function>(jsmat<unsigned short>::constructor());
-      // 	v8::Local<v8::Object> jsm = jsu_cons->NewInstance(Nan::GetCurrentContext()).ToLocalChecked();
-      // 	//v8::Local<v8::Object> jsm = Nan::New<jsmat<unsigned short>>();//jsu_cons->NewInstance(isolate->GetCurrentContext()).ToLocalChecked();
-      // 	//	  Handle<v8::Value> jsm =jsu_cons->NewInstance();	  
-      // 	v8::Handle<v8::Object> jsmo = v8::Handle<v8::Object>::Cast(jsm);
-	
-      // 	//	cout << "JSMO empty ? " << jsmo.IsEmpty() << endl;
-	
-	
-      // 	if(!jsmo.IsEmpty()){
-
-      // 	  //  cout << "Hello" << endl;
-      // 	  v8::Handle<v8::Value> fff=obj_pers->Get(Nan::New<v8::String>("last_image").ToLocalChecked());
-      // 	  jsmat<unsigned short>* last_i = Nan::ObjectWrap::Unwrap<jsmat<unsigned short> >(v8::Handle<v8::Object>::Cast(fff));
-      // 	  jsmat<unsigned short>* jsmv_unw = Nan::ObjectWrap::Unwrap<jsmat<unsigned short> >(v8::Handle<v8::Object>::Cast(jsmo));
-      // 	  //cout << "Hello COPY" << endl;
-
-      // 	  // auto obj_pers=Nan::New(obj->edata.obj_persistent);
-	  
-      // 	  //	  sbig* objuw = Nan::ObjectWrap::Unwrap<sbig>(obj_pers);
-
-      // 	  //jsmat<unsigned short>* last_i = jsmat_unwrap<unsigned short>(Handle<v8::Object>::Cast(fff)); //new jsmat<unsigned short>();
-      // 	  //jsmat<unsigned short>* jsmv_unw = jsmat_unwrap<unsigned short>(Handle<v8::Object>::Cast(jsmo)); //new jsmat<unsigned short>();
-	  
-      // 	  //cout << "COPY "<< jsmv_unw << " LIMG w ="<<obj->last_image.dims[0]<< endl;
-
-      // 	  //cout << "Hello COPY" << endl;
-      // 	  //cout << "COPY jsmv w="<< jsmv_unw->dims[0] << endl;
-	  
-      // 	  (*jsmv_unw)=obj->last_image;
-      // 	  //cout << "Hello COPY 2" << endl;
-      // 	  (*last_i)=obj->last_image;
-      // 	  //cout << "COPY OK w="<< jsmv_unw->dims[0] << endl;
-
-      // 	  //cout << "Hello COPY OK" << endl;
-	  
-      // 	  v8::Handle<v8::Value> h_fimage=obj_pers->Get(Nan::New<v8::String>("last_image_float").ToLocalChecked());
-      // 	    jsmat<float>* fimage = Nan::ObjectWrap::Unwrap<jsmat<float> >(v8::Handle<v8::Object>::Cast(h_fimage)); //new jsmat<unsigned short>();
-      // 	    fimage->redim(last_i->dims[0],last_i->dims[1]);
-
-      // 	    //MINFO << "Copy float image DIMS " << last_i->dims[0] << ", " << last_i->dims[1] << endl;
-	    
-      // 	    for(int p=0;p<fimage->dim;p++)fimage->c[p]=(float)last_i->c[p];
-
-	    
-      // 	    const unsigned argc = 1;
-	    
-      // 	    v8::Handle<v8::Object> msg = Nan::New<v8::Object>();
-      // 	    msg->Set(Nan::New<v8::String>("type").ToLocalChecked(),Nan::New<v8::String>("new_image").ToLocalChecked());
-      // 	    msg->Set(Nan::New<v8::String>("content").ToLocalChecked(),h_fimage);  
-      // 	    //if(id!="")
-      // 	    msg->Set(Nan::New<v8::String>( "id").ToLocalChecked(),Nan::New<v8::String>( "expo_proc").ToLocalChecked());  
-      // 	    v8::Handle<v8::Value> msgv(msg);
-      // 	    v8::Handle<v8::Value> argv[argc] = { msgv };
-
-      // 	    cout << "Emit Image event " << endl;
-      // 	    cb->Call(context->Global(), argc, argv );    
-
-
-      // 	    /*
-      // 	    v8::Handle<v8::Object> msg = v8::Object::New();
-      // 	    msg->Set(v8::String::NewFromUtf8(isolate, "new_image"),h_fimage);  
-      // 	    //v8::Handle<v8::Value> msgv(msg);
-	    
-      // 	    Handle<v8::Value> argv[1] = { msg };
-      // 	    obj->cb->Call(v8::Context::GetCurrent()->Global(), 1, argv );    
-      // 	    */
-
-      // 	  }else{
-      // 	    cout << "BUG ! empty handle !"<<endl;
-      // 	  }
-
-      // }//;
-      //      double percentage = *((double*) handle->data);
-      //fprintf(stderr, "Downloaded %.2f%%\n", percentage);
-
-
-
-
-	// while(waiting){
-	//   obj->new_event.lock();
-	      
-	//       while(obj->event_id==0){
-	// 	obj->new_event.wait();
-	// 	//expt.done.unlock();
-		
-		
-	//       }
-
-      
-      
-    //    uv_timer_start(handle, timercb, ms, 0);
-    
-
-    //    obj->edata.emit.SetFunction(cb);
-    
-    //   obj->pcam->context=context;
-    //    emit.Call({v8::String::New(env, "start")});
-
-
-
-	    
-	    //v8::Handle<v8::Object> msg = v8::Object::New(isolate);
-	    //msg->Set(v8::String::NewFromUtf8(isolate, "start"),v8::String::NewFromUtf8(isolate, "TEST DATA Start"));
-	    //msg->Set(v8::String::NewFromUtf8(isolate, "end"),v8::String::NewFromUtf8(isolate, "Other Data End!"));  
-	    //v8::Handle<v8::Value> msgv(msg);
-
-    //    const unsigned argc = 2;
-    //    v8::Handle<v8::Value> argv[2] = {Nan::New<v8::String>("end").ToLocalChecked(),v8::String::NewFromUtf8(isolate, "Other Data End!")  };
-	    //	    v8::Local<v8::Function> ff=Nan::New(*obj->pcam->emit);
-    //    cb.Call(2, argv );    
-
-
-    
-    // Here some long running task and return piece of data exectuing some task
-	    //    for(int i = 0; i < 3; i++) {
-	    //        std::this_thread::sleep_for(std::chrono::seconds(3));
-
-	//  emit.Call({v8::String::New(env, "data"), v8::String::New(env, "data ...")});
-	    //    }
-    //    emit.Call({v8::String::New(env, "end")});
-    cout << "start..." << endl;
 
       
       //    MINFO << "ArgsLength " << args.Length() << endl;
@@ -1880,65 +1780,11 @@ MERROR << "deprecated" << endl;
       
     v8::Local<v8::Function> cb_emit=v8::Local<v8::Function>::Cast(args[2]);
 
-
-
-    cout << "async init..." << endl;
-    
-
-    
-    
-  //Register the async handler to allow wakeup the event loop and get a callback called from another thread.
-    
-    
-    //    uv_loop_t *loop;
-    // loop = uv_default_loop();
-
-    // uv_work_t req;
-    //req.data = (void*) obj;
     args.GetReturnValue().Set(promise);
 
     cout << "set promise done..." << endl;
      
      cout << "queue work..." << endl;
-    //    uv_async_init(loop, &async, grab_events);
-    //    uv_queue_work(loop, &req, grab_image_async, grab_after);    
-
-
-    // for(int i=0;i<10;i++){
-    //   std::unique_lock<std::mutex> lock(obj->m);
-    //   std::cout << "pushing 17\n";
-    //   obj->produced_nums.push(17+i);
-    //   obj->notified = true;
-
-
-    //   cout << "DGrab async...this is " << obj << endl;
-    //   //uv_rwlock_wrlock(&obj->AW.lock);
-    //   cout << "DGrab async...locked" << endl;
-    //   obj->AW.msgArr.push_back("HELLOOOOO from startfunc");
-    //   //uv_rwlock_wrunlock(&obj->AW.lock);
-    //   cout << "DGrab async..unlocked." << endl;
-
-    //   obj->cond_var.notify_one();
-    // }
-    
-    
-  // std::unique_lock<std::mutex> lock(m);
-  //       while (!done) {
-  //           while (!notified) {  // loop to avoid spurious wakeups
-  //               cond_var.wait(lock);
-  //           }   
-  //           while (!produced_nums.empty()) {
-  //               std::cout << "consuming " << produced_nums.front() << '\n';
-  //               produced_nums.pop();
-  //           }   
-  //           notified = false;
-  //       }   
-
-
-    //    stringstream ss; ss<<"Initializing exposure exptime="<<obj->exptime<<" nexpo="<<obj->nexpo;
-
-    //    v8::Local<Nan::Callback> emit_cb = Nan::New( obj->edata.emit);
-    // send_status_func(cb,"info",ss.str().c_str(),"expo_proc");
 
      try{
        obj->config_cam(options);
@@ -1968,47 +1814,6 @@ MERROR << "deprecated" << endl;
     
     cout << "expo func done " << endl;
     
-    //resolver->Resolve(Nan::New("invoked").ToLocalChecked());
-    return;
-
-
-    
-
-      //      v8::Isolate* isolate = args.GetIsolate();
-    //      v8::Local<v8::Context> context = isolate->GetCurrentContext();
-      
-
-    //    v8::Handle<v8::Value> fff=obj->Get(Nan::New<v8::String>("last_image").ToLocalChecked());
-    
-    //obj->cb = v8::Local<Function>::Cast(args[0]);    
-
-
-    //    v8::Local<v8::Function> cb =Nan::New(obj->edata.emit);
-    //cb=cb_func;
-    
-    //v8::Local<Nan::Callback> cb =Nan::New(obj->edata.emit);
-    
-    //using CbPersistent = Nan::Persistent<v8::Function>;
-    //using ResolverPersistent = Nan::Persistent<v8::Promise::Resolver>;
-    
-    // //    auto ms = Nan::To<unsigned>(args[0]).FromJust();
-
-    
-    // obj->edata.persistent = new Nan::Persistent<v8::Promise::Resolver>(resolver);
-    // obj->edata.obj_persistent = new Nan::Persistent<v8::Object>(thisobj);
-    // obj->edata.emit = new Nan::Persistent<v8::Function>(cb);
-
-    
-    
-
-
-
-
-    //    uv_run(loop, UV_RUN_DEFAULT);
-
-
-
-    //args.GetReturnValue().Set(args.This());
 
   }
 
@@ -2031,17 +1836,17 @@ MERROR << "deprecated" << endl;
     //v8::Local<v8::Function> cb=To<v8::Function>(args[1]).ToLocalChecked(); 
       
     v8::Local<v8::Function> cb_emit=v8::Local<v8::Function>::Cast(args[2]);
-
+    
     args.GetReturnValue().Set(promise);
-     obj->config_cam(options);
-     v8::Local<v8::Object> thisobj=args.This();
-      
+    obj->config_cam(options);
+    v8::Local<v8::Object> thisobj=args.This();
+    
     obj->AW.event_callback=v8::Persistent<v8::Function, v8::CopyablePersistentTraits<v8::Function>>(isolate, cb);
     obj->AW.resolver=v8::Persistent<v8::Promise::Resolver, v8::CopyablePersistentTraits<v8::Promise::Resolver>>(isolate, resolver);
     
     obj->AW.obj_persistent=new Nan::Persistent<v8::Object>(thisobj);
     
-    MINFO << "Send status....OK" << endl;
+    MINFO << "Monitor: sending command" << endl;
 
     //double uid=usb_id->Value();
     cam_command* cc=new cam_command(COM_MONITOR);
@@ -2067,8 +1872,8 @@ MERROR << "deprecated" << endl;
     sbig* obj = Nan::ObjectWrap::Unwrap<sbig>(args.This());
 
 
-    v8::Local<v8::Function> cb = v8::Local<v8::Function>::Cast(args[0]);
-    send_status_func(cb, "info","stop exposure");
+    //    v8::Local<v8::Function> cb = v8::Local<v8::Function>::Cast(args[0]);
+    // send_status_func(cb, "info","stop exposure");
     obj->stop_exposure();
     
     args.GetReturnValue().Set(args.This());

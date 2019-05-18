@@ -51,6 +51,7 @@ namespace sadira{
     virtual void expo_complete(double pc);
 
     PAR_ERROR GrabMainFast(qk::mat<unsigned short>& data);
+    PAR_ERROR GrabSetup();
     void check_error();
     sbig* sb;
   };
@@ -137,9 +138,9 @@ namespace sadira{
     static void stop_exposure_func(const Nan::FunctionCallbackInfo<v8::Value>& args);
     static void get_temp_func(const Nan::FunctionCallbackInfo<v8::Value>& args);
     static void set_temp_func(const Nan::FunctionCallbackInfo<v8::Value>& args);
+    static void shutter_func(const Nan::FunctionCallbackInfo<v8::Value>& args);
     static void filter_wheel_func(const Nan::FunctionCallbackInfo<v8::Value>& args);
     static void ccd_info_func(const Nan::FunctionCallbackInfo<v8::Value>& args);
-
     static void monitor_func(const Nan::FunctionCallbackInfo<v8::Value>& args);
 
 
@@ -162,9 +163,6 @@ namespace sadira{
     };
     */
     
-    void close_shutter();
-
-    sbig_cam *pcam;
 
     
     //    expo_thread expt;
@@ -176,6 +174,8 @@ namespace sadira{
   public:
 
     mat<unsigned short> last_image;
+    void close_shutter();
+    sbig_cam *pcam;
     
     // struct eventData{
     //   int event_id;
@@ -247,7 +247,7 @@ namespace sadira{
     double ccd_tempreg_power;
     int continue_expo;
     std::mutex continue_expo_mut;
-    cond last_image_ready_cond;
+    //cond last_image_ready_cond;
     int last_image_ready;
   };
 
