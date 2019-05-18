@@ -239,13 +239,13 @@ namespace sadira{
 
   PAR_ERROR sbig_cam::GrabMainFast(qk::mat<unsigned short>& data){
     int 								i;
-    double 							ccdTemp = 0.0;
-    time_t 							curTime;
+    //double 							ccdTemp = 0.0;
+    //time_t 							curTime;
     PAR_ERROR 					err;
     StartReadoutParams 	srp;
     ReadoutLineParams 	rlp;
-    struct tm *					pLT;
-    char 								cs[80];
+    //struct tm *					pLT;
+    //char 								cs[80];
     MY_LOGICAL 					expComp;
     
     EndExposure();
@@ -310,7 +310,7 @@ namespace sadira{
 
 	data.redim(m_sGrabInfo.width,m_sGrabInfo.height);m_eGrabState = GS_DIGITIZING_LIGHT;
 
-	int nnotif=5;
+	//int nnotif=5;
 	if ( (err = StartReadout(srp)) == CE_NO_ERROR ) 
 	{
 		rlp.ccd = m_eActiveCCD;
@@ -363,7 +363,7 @@ namespace sadira{
     v8::Handle<v8::Value> msgv(msg);
     v8::Handle<v8::Value> argv[argc] = { msgv };
 
-    cb.Call(argc, argv );    
+    cb.Call(argc, argv);    
   }
 
   void send_status_func(v8::Local<v8::Function>& cb, const string& type, const string& message, const string& id=""){
@@ -765,14 +765,14 @@ namespace sadira{
   
   void sbig::send_status_message(v8::Isolate* isolate, const string& type, const string& message){
 MERROR << "deprecated" << endl;
-    const unsigned argc = 1;
+//const unsigned argc = 1;
 
     v8::Handle<v8::Object> msg = v8::Object::New(isolate);
     msg->Set(v8::String::NewFromUtf8(isolate, "type"),v8::String::NewFromUtf8(isolate, type.c_str()));
     msg->Set(v8::String::NewFromUtf8(isolate, "content"),v8::String::NewFromUtf8(isolate, message.c_str()));  
 
     v8::Handle<v8::Value> msgv(msg);
-    v8::Handle<v8::Value> argv[argc] = { msgv };
+    // v8::Handle<v8::Value> argv[argc] = { msgv };
     //    cb->Call(isolate->GetCurrentContext()->Global(), argc, argv );    
   }
 
@@ -1012,7 +1012,7 @@ MERROR << "deprecated" << endl;
   }
 
   void sbig::shutdown_func(const Nan::FunctionCallbackInfo<v8::Value>& args){
-    v8::Isolate* isolate = args.GetIsolate();
+      //v8::Isolate* isolate = args.GetIsolate();
     
     sbig* obj = Nan::ObjectWrap::Unwrap<sbig>(args.This());
 
@@ -1240,9 +1240,10 @@ MERROR << "deprecated" << endl;
 
     
     pcam(0),
-    //    expt(this),
+    //    expt(this),    
+    T(NULL),
     infinite_loop(false),
-    continue_expo(0),T(NULL){
+    continue_expo(0){
 
     cout << "SBIG: CTOR" << endl;
     
@@ -1290,7 +1291,7 @@ MERROR << "deprecated" << endl;
 
     cout << "SBIG Thread startup "<< this << endl;
     std::unique_lock<std::mutex> lock(m);
-    cam_event* came;
+    //cam_event* came;
       
       while (!done) {
 	while (!notified) {  // loop to avoid spurious wakeups
@@ -1778,7 +1779,7 @@ MERROR << "deprecated" << endl;
     v8::Local<v8::Function> cb=v8::Local<v8::Function>::Cast(args[1]);
     //v8::Local<v8::Function> cb=To<v8::Function>(args[1]).ToLocalChecked(); 
       
-    v8::Local<v8::Function> cb_emit=v8::Local<v8::Function>::Cast(args[2]);
+    //v8::Local<v8::Function> cb_emit=v8::Local<v8::Function>::Cast(args[2]);
 
     args.GetReturnValue().Set(promise);
 
@@ -1835,7 +1836,7 @@ MERROR << "deprecated" << endl;
     v8::Local<v8::Function> cb=v8::Local<v8::Function>::Cast(args[1]);
     //v8::Local<v8::Function> cb=To<v8::Function>(args[1]).ToLocalChecked(); 
       
-    v8::Local<v8::Function> cb_emit=v8::Local<v8::Function>::Cast(args[2]);
+    //v8::Local<v8::Function> cb_emit=v8::Local<v8::Function>::Cast(args[2]);
     
     args.GetReturnValue().Set(promise);
     obj->config_cam(options);
@@ -1867,7 +1868,7 @@ MERROR << "deprecated" << endl;
   
   void sbig::stop_exposure_func(const Nan::FunctionCallbackInfo<v8::Value>& args){
 
-    v8::Isolate* isolate = args.GetIsolate();
+      //v8::Isolate* isolate = args.GetIsolate();
 
     sbig* obj = Nan::ObjectWrap::Unwrap<sbig>(args.This());
 
@@ -1953,10 +1954,10 @@ MERROR << "deprecated" << endl;
     //pcam = new sbig_cam(this, DEV_USB1);
   
     string caminfo="";
-    double ccd_temp;
-    unsigned short regulation_enabled;
-    double setpoint_temp;
-    double percent_power;
+    //double ccd_temp;
+    //unsigned short regulation_enabled;
+    //double setpoint_temp;
+    //double percent_power;
 
     
 
