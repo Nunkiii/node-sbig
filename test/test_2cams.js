@@ -1,4 +1,5 @@
-var fits = require('../../node-fits/build/Release/fits');
+//var fits = require('../../node-fits/build/Release/fits');
+var fits = require('../node_modules/node-fits/build/Release/fits');
 var sbig = require('../build/Release/sbig');
 
 console.log("Loading driver...");
@@ -30,9 +31,9 @@ sbig.usb_info(function(data){
 
 	var cam_options = {
 
-	    exptime : 0.3,
-	    nexpo : 1,
-	    //subframe : [0, 0, 100, 100],
+	    exptime : 10.0,
+	    nexpo : 2,
+	    subframe : [12, 34, 123, 456],
 	    fast_readout : false,
 	    dual_channel : false,
 	    light_frame: true,
@@ -71,7 +72,7 @@ sbig.usb_info(function(data){
 		console.log(init_message.content + " --> starting exposure.");
 		take_image(cam1,"cam1");
 
-		cam1.filter_wheel(1);
+		cam1.filter_wheel(4);
 	    }
 	    if(init_message.type=="info") {
 		console.log("Cam1 Info : " + init_message.content );
