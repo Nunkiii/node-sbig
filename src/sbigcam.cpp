@@ -1348,6 +1348,8 @@ MERROR << "deprecated" << endl;
 	    came->message="Exposure terminated";
 	    
 	    cam_event* came2=new cam_event();
+	    came2->title="new_image";
+	    came2->message="New image received";
 	    came2->obj=obj;
 	    came2->event=EVT_NEW_IMAGE;
 	    obj->event_queue.push(came2);
@@ -1400,6 +1402,8 @@ MERROR << "deprecated" << endl;
 	      cam_event* came2=new cam_event();
 	      came2->obj=obj;
 	      came2->event=EVT_NEW_IMAGE;
+	      came2->title="new_image_monitor";
+	      came2->message="New image received from monitor";
 	      obj->event_queue.push(came2);
 	      obj->AW.async.data = obj;
 	      uv_async_send(&obj->AW.async);
@@ -1464,6 +1468,7 @@ MERROR << "deprecated" << endl;
 	    resolver->Reject(msg);
 	  }
 	  else{
+	    MINFO << "Resolving INIT promise " << endl;
 	    resolver->Resolve(msg);      
 	  }
 	    
@@ -1512,7 +1517,8 @@ MERROR << "deprecated" << endl;
 	    obj->AW.resolver.Reset();
 	    obj->AW.event_callback.Reset();
 	    obj->AW.obj_persistent->Reset();
-	    
+
+	    MINFO << "Sent EXPO_COMPLETE " << cevent->message << endl;
 	    //obj->kill_thread();
 	    
       
@@ -1540,7 +1546,7 @@ MERROR << "deprecated" << endl;
 	    jsmat<unsigned short>* jsmv_unw = Nan::ObjectWrap::Unwrap<jsmat<unsigned short> >(v8::Handle<v8::Object>::Cast(jsmo));
 	    
 	    (*jsmv_unw)=obj->last_image;
-	    cout << "Hello COPY 2" << obj->last_image.dims[0] << ", "<< obj->last_image.dims[1] << "  " << endl;
+	    //	    cout << "Hello COPY 2" << obj->last_image.dims[0] << ", "<< obj->last_image.dims[1] << "  " << endl;
 	    (*last_i)=obj->last_image;
 	    //cout << "COPY OK w="<< jsmv_unw->dims[0] << endl;
 	    
@@ -1562,7 +1568,9 @@ MERROR << "deprecated" << endl;
       	    v8::Handle<v8::Value> msgv(msg);
       	    v8::Handle<v8::Value> argv[argc] = { msgv };
 
-      	    MINFO << "Emit Image event " << endl;
+	    MINFO << "NEW_IMAGE "  << endl;
+
+
       	    cb->Call(isolate->GetCurrentContext()->Global(), argc, argv );    
 
 
@@ -1602,7 +1610,7 @@ MERROR << "deprecated" << endl;
 	  v8::Handle<v8::Value> msgv(msg);
 	  v8::Handle<v8::Value> argv[argc] = { msgv };
 	
-	  cout << "Emit Image event " << endl;
+	  MINFO << "EXPO_PROGRESS " << cevent->complete << endl;
 	  cb->Call(isolate->GetCurrentContext()->Global(), argc, argv );    
 	}	  
 	}));
@@ -1625,7 +1633,8 @@ MERROR << "deprecated" << endl;
 	  msg->Set(Nan::New<v8::String>( "id").ToLocalChecked(),Nan::New<v8::String>( "expo_proc").ToLocalChecked());  
 	  v8::Handle<v8::Value> msgv(msg);
 	  v8::Handle<v8::Value> argv[argc] = { msgv };
-	
+
+	  MINFO << "GRAB_PROGRESS " << cevent->complete << endl;
 	  //cout << "Emit Image event " << endl;
 	  cb->Call(isolate->GetCurrentContext()->Global(), argc, argv );    
 	}	  
