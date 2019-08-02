@@ -1343,19 +1343,74 @@ MERROR << "deprecated" << endl;
 	  came->event=EVT_EXPO_COMPLETE;
 
 	  try{
-	    obj->really_take_exposure();
-	    came->title="success";
-	    came->message="Exposure terminated";
+
+	    if(!obj->pcam) throw qk::exception("No PCAM !");
 	    
-	    cam_event* came2=new cam_event();
-	    came2->title="new_image";
-	    came2->message="New image received";
-	    came2->obj=obj;
-	    came2->event=EVT_NEW_IMAGE;
-	    obj->event_queue.push(came2);
+	    SBIG_DARK_FRAME sbdf= obj->light_frame ? SBDF_LIGHT_ONLY : SBDF_DARK_ONLY;
+	    
+	    obj->pcam->EstablishLink();
+	    obj->check_error();
+	    
+	    CSBIGImg *pImg= 0;    
+	    pImg = new CSBIGImg;
+	    pImg->AllocateImageBuffer(obj->height, obj->width);
+	    
+	    
+	    
+	    int expo=0;
+	    
+	    //    continue_expo_mut.lock();
+	    int continue_expo=1;
+	    
+	    obj->check_error();
+	    
+	    while(continue_expo){
+	      
+	      MINFO << "Accumulating photons. Exptime="<<obj->exptime << " Expo  "<< (expo+1) << "/" << obj->nexpo<<endl;
+	      
+	      //void CSBIGCam::GetGrabState(GRAB_STATE &grabState, double &percentComplete)
+	      
+	      obj->pcam->GrabImage(pImg,sbdf);
+	      obj->check_error();
+	      
+	      
+	      //new_event.lock();
+	      
+	      obj->last_image.redim(pImg->GetWidth(), pImg->GetHeight());    
+	      obj->last_image.rawcopy(pImg->GetImagePointer(),obj->last_image.dim);
+	      
+	      expo++;
+
+	      cam_event* came2=new cam_event();
+	      came2->title="new_image";
+	      came2->message="New image received";
+	      came2->obj=obj;
+	      came2->event=EVT_NEW_IMAGE;
+	      obj->event_queue.push(came2);
 	      obj->AW.async.data = obj;
 	      uv_async_send(&obj->AW.async);
 	      
+	      if(expo>=obj->nexpo) continue_expo=0;
+	      
+	      //system("ds9 grab.fits -frame refresh");
+	      
+	    }
+	    
+	    continue_expo=0;
+	    //    continue_expo_mut.unlock();
+	    // MINFO << " Done exposures. Forcing closing of shutter." << endl;
+	    
+	    delete pImg;
+	    obj->close_shutter();
+	    
+	    
+	    
+	    
+	    //obj->really_take_exposure();
+	    came->title="success";
+	    came->message="All Exposures terminated";
+	    
+	    
 	  }
 	  catch(qk::exception& e){
 	    came->title="error";
@@ -1717,6 +1772,13 @@ MERROR << "deprecated" << endl;
       check_error();
     }
 
+
+    fff=options->Get(v8::String::NewFromUtf8(isolate, "light_frame"));
+    if(!fff->IsUndefined()){
+      light_frame = fff->BooleanValue();
+      check_error();
+    }
+
     cout << "Config cam set readout" << endl;
 
     int rm=0;
@@ -1741,7 +1803,12 @@ MERROR << "deprecated" << endl;
       pcam->SetReadoutMode(rm);
       check_error();
     }
-    
+
+    pcam->EstablishLink();
+    pcam->GetFullFrame(fullWidth, fullHeight);
+    check_error();
+    MINFO << "FullFrame : " << fullWidth << ", " << fullHeight << endl;
+
     v8::Local<v8::Array> subframe_array=v8::Local<v8::Array>::Cast(options->Get(v8::String::NewFromUtf8(isolate, "subframe")));
     if(!subframe_array->IsUndefined()){
       
@@ -1752,17 +1819,16 @@ MERROR << "deprecated" << endl;
       n= v8::Local<v8::Number>::Cast(subframe_array->Get(3));height=n->Value();
 
       MINFO << "subframe Left=" << left << ", Top="<< top<< ", Width="<< width<< ", Height="<< height <<endl;
+    }else{
+      width = fullWidth;
+      height = fullHeight;
+      left=0;
+      top=0;
     }
-    cout << "Config cam get full frame..." << endl;
+    //cout << "Config cam get full frame..." << endl;
 
-    pcam->EstablishLink();
-    pcam->GetFullFrame(fullWidth, fullHeight);
-    check_error();
-    MINFO << "FullFrame : " << fullWidth << ", " << fullHeight << endl;
     
-    if (width == 0)width = fullWidth;
-    
-    
+    if (width == 0)width = fullWidth;    
     if (height == 0)height = fullHeight;
     pcam->SetSubFrame(left, top, width, height);
     check_error();

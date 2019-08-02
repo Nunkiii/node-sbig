@@ -54,6 +54,7 @@ namespace sadira{
     PAR_ERROR GrabSetup();
     void check_error();
     sbig* sb;
+
   };
 
   QueryUSBResults usb_info(); 
@@ -235,6 +236,7 @@ namespace sadira{
 
     float exptime;
     int nexpo;
+    bool light_frame=true;
     
 
     int ccd_width, ccd_height, width, height;
