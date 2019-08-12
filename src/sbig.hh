@@ -144,10 +144,8 @@ namespace sadira{
     static void ccd_info_func(const Nan::FunctionCallbackInfo<v8::Value>& args);
     static void monitor_func(const Nan::FunctionCallbackInfo<v8::Value>& args);
 
-
     void config_cam(v8::Local<v8::Object>& options);
     ///static void usb_info_func(const Nan::FunctionCallbackInfo<v8::Value>& args);
-
 
     /*
     class expo_thread : public qk::thread{
@@ -164,13 +162,8 @@ namespace sadira{
     };
     */
     
-
-    
     //    expo_thread expt;
     void* event;
-
-
-    
     
   public:
 
@@ -194,7 +187,6 @@ namespace sadira{
 
     AsyncWork AW;
 
-
     std::queue<cam_command*> command_queue;
     std::queue<cam_event*> event_queue;
     
@@ -212,8 +204,6 @@ namespace sadira{
     //    static Nan::Persistent<Function> constructor;
     //  private:
     //    v8::Local<v8::Function> cb;
-
-    
     
     /*
     REG_BASE_OBJECT sbig();
@@ -228,16 +218,12 @@ namespace sadira{
     void stop_exposure();
     void really_take_exposure();
     void shutdown();
-
-    
-
     
     bool infinite_loop;
 
     float exptime;
     int nexpo;
     bool light_frame=true;
-    
 
     int ccd_width, ccd_height, width, height;
     std::string camera_type_string;
