@@ -94,23 +94,23 @@ sbig.usb_info(function(data){
     }
 
     if(data.length>1)
-	cam2.initialize(data[1].id,function (init_message){
-	    console.log("CAM2 Init : " + JSON.stringify(init_message));
-	    if(init_message.type=="success") {
+        cam2.initialize(data[1].id,function (init_message){
+            console.log("CAM2 Init : " + JSON.stringify(init_message));
+            if(init_message.type=="success") {
 		
-		console.log(init_message.content + " --> starting exposure.");
-		take_image(cam2,"cam2");
-	    }
-	    if(init_message.type=="info") {
-		console.log("Cam2 Info : " + init_message.content );
-	    };
+        	console.log(init_message.content + " --> starting exposure.");
+        	take_image(cam2,"cam2");
+            }
+            if(init_message.type=="info") {
+        	console.log("Cam2 Info : " + init_message.content );
+            };
 	    
-	    if(init_message.type=="error") {
-		console.log("Cam2 Error : " + init_message.content );
-	    }
+            if(init_message.type=="error") {
+        	console.log("Cam2 Error : " + init_message.content );
+            }
 	    
-	    //take_image(cam2,"cam2");
-	});
+            //take_image(cam2,"cam2");
+        });
     
     var i=0;
     var iv=setInterval(function(){
