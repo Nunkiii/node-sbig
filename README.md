@@ -13,11 +13,11 @@ The `libsbigudrv.so` SBIG proprietary library driver and the camera firmware mus
 
 On Debian-like systems to install node (for example):
 
-    #apt-get install node node-gyp 
+    sudo apt install node node-gyp 
     
 And to install dependecies:
     
-    g++ libpng-dev libcfitsio-dev libusb-1.0-0-dev libsbigudrv-dev
+    sudo apt install g++ libpng-dev libcfitsio-dev libusb-1.0-0-dev libsbig
    
 In the node-sbig directory, build the module:
 
