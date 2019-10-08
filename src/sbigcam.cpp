@@ -2159,20 +2159,20 @@ namespace sadira{
 
         MiscellaneousControlParams mcp;
 
-        mcp.fanEnable=0;
+//        mcp.fanEnable=0;
         mcp.ledState=LED_BLINK_HIGH;
         mcp.shutterCommand=SC_CLOSE_SHUTTER;
 
         //    short int err;
         //err=
-        pcam->SBIGUnivDrvCommand(CC_MISCELLANEOUS_CONTROL, &mcp, NULL);
+//        pcam->SBIGUnivDrvCommand(CC_MISCELLANEOUS_CONTROL, &mcp, NULL);
         check_error();
 
-        mcp.fanEnable=0;
+//        mcp.fanEnable=0;
         mcp.ledState=LED_ON;
         mcp.shutterCommand=SC_CLOSE_SHUTTER;
         //err=
-        pcam->SBIGUnivDrvCommand(CC_MISCELLANEOUS_CONTROL, &mcp, NULL);
+//        pcam->SBIGUnivDrvCommand(CC_MISCELLANEOUS_CONTROL, &mcp, NULL);
         check_error();
 
         //    MINFO  << " Shutter closed !" << endl;
