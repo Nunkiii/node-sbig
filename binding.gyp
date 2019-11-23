@@ -20,7 +20,7 @@
                               "-lcfitsio",
                               "-lpng",
                               "-ljpeg",
-                              "-lsbig",
+                              "-lsbigudrv",
                               "/usr/lib/x86_64-linux-gnu/libusb-1.0.so"
                              ],
                 "cflags_cc": ["-fexceptions",
