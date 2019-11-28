@@ -99,8 +99,8 @@ class CSBIGCam
 	CSBIGCam(SBIG_DEVICE_TYPE dev);
 	~CSBIGCam();
 
-	virtual void grab_complete(double pc)=0;
-	virtual void expo_complete(double pc)=0;
+  virtual void grab_complete(double pc){};
+  virtual void expo_complete(double pc){};
 	
 	void Init();
 

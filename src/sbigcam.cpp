@@ -76,7 +76,8 @@ namespace sadira{
 
     }
 
-    PAR_ERROR sbig_cam::GrabSetup()//CSBIGImg *pImg, SBIG_DARK_FRAME dark)
+  
+    PAR_ERROR sbig_cam::GrabSetupFast()//CSBIGImg *pImg, SBIG_DARK_FRAME dark)
     {
         GetCCDInfoParams    gcip;
         GetCCDInfoResults0  gcir;
@@ -323,7 +324,7 @@ namespace sadira{
 
         EndReadout();
 
-        cout << "Readout DONE !" << endl;
+        //cout << "Readout DONE !" << endl;
 
         if (err != CE_NO_ERROR)
         {
@@ -335,7 +336,7 @@ namespace sadira{
             return err;
         }
 
-        cout << "DONE GRAB!" << endl;
+        //cout << "DONE GRAB!" << endl;
 
         return CE_NO_ERROR;
     }
@@ -599,7 +600,7 @@ namespace sadira{
         obj->pcam->SBIGUnivDrvCommand(CC_GET_CCD_INFO, &par, &res);
         cam->check_error();
 
-        MINFO << "OK CCD INFO! " << res.readoutModes <<endl;
+        //MINFO << "OK CCD INFO! " << res.readoutModes <<endl;
 
         //res.readoutModes=10;
 
@@ -698,7 +699,8 @@ namespace sadira{
         QueryTemperatureStatusResults qtsr;
 
         // Ambient Temperature
-        if ( (res = cam->SBIGUnivDrvCommand(CC_QUERY_TEMPERATURE_STATUS, NULL, &qtsr)) != CE_NO_ERROR ){
+        if 
+	  ( (res = cam->SBIGUnivDrvCommand(CC_QUERY_TEMPERATURE_STATUS, NULL, &qtsr)) != CE_NO_ERROR ){
             MWARN << "Error getting Ambient temperature!"<<endl;
             //isolate->ThrowException(v8::Exception::Error(v8::String::NewFromUtf8(isolate, "Error getting Ambient temperature!")));
         }else{
@@ -1208,25 +1210,25 @@ namespace sadira{
     sbig::sbig():
 
 
-        pcam(0),
-        //    expt(this),
-        T(NULL),
-        infinite_loop(false),
-        continue_expo(0){
-
-        cout << "SBIG: CTOR" << endl;
-
-        width=0;
-        height=0;
-        uv_async_init(uv_default_loop(), &this->AW.async, grab_events);
-        T = new std::thread(cam_tfunc, this);
-        AW.obj_persistent=NULL;
-
+      pcam(0),
+      //    expt(this),
+      T(NULL),
+      infinite_loop(false),
+      continue_expo(0){
+      
+      //cout << "SBIG: ["<<this<<"] CTOR" << endl;
+      
+      width=0;
+      height=0;
+      uv_async_init(uv_default_loop(), &this->AW.async, grab_events);
+      T = new std::thread(cam_tfunc, this);
+      AW.obj_persistent=NULL;
+      
     }
-
+  
     sbig::~sbig(){
         try{
-            cout << "SBIG DTOR: Delete " << this << endl;
+	  //cout << "SBIG ["<<this<<"] DTOR: Delete " << this << endl;
             kill_thread();
             shutdown();
         }
@@ -1241,34 +1243,35 @@ namespace sadira{
 
         done=true;
         notified = true;
-        MINFO << "Camera thread kill notify"<<endl;
+        MINFO << "SBIG ["<<camera_type_string<<"] killing thread."<<endl;
         cond_var.notify_one();
-        MINFO << "JOIN Camera thread !"<<endl;
+	//        MINFO << "JOIN Camera thread !"<<endl;
         T->join();
         delete T;
         T=NULL;
+	MINFO << "SBIG ["<<camera_type_string<<"] thread killed."<<endl;
         uv_close((uv_handle_t*)&this->AW.async, [](uv_handle_t* handle) {
-                // My async callback here
+	    // My async callback here
                 //free(handle);
-            });
-
+	  });
+	
     }
-
+  
     std::map<int, std::function<void(cam_command*,sbig*)>> cam_handlers;
 
     void sbig::exec(){
 
-        cout << "SBIG Thread startup "<< this << endl;
+        MINFO << "SBIG ["<<this<<"] Thread startup "<< this << endl;
         std::unique_lock<std::mutex> lock(m);
         //cam_event* came;
 
         while (!done) {
             while (!notified) {  // loop to avoid spurious wakeups
-                cout << "SBig: Waiting" << endl;
+	      MINFO << "SBIG ["<<camera_type_string<<"] Waiting" << endl;
                 cond_var.wait(lock);
             }
             while (!command_queue.empty()) {
-                std::cout << "SBIG Thread consuming " << command_queue.front() << '\n';
+                MINFO << "SBIG ["<<camera_type_string<<"] Thread consuming " << command_queue.front() << '\n';
                 cam_command* com=command_queue.front();
                 command_queue.pop();
                 cam_handlers[com->command](com, this);
@@ -1309,16 +1312,18 @@ namespace sadira{
                     came->obj=obj;
                     came->event=EVT_EXPO_COMPLETE;
 
+		    CSBIGImg *pImg= 0;
+		    
                     try{
 
                         if(!obj->pcam) throw qk::exception("No PCAM !");
 
                         SBIG_DARK_FRAME sbdf= obj->light_frame ? SBDF_LIGHT_ONLY : SBDF_DARK_ONLY;
 
-                        obj->pcam->EstablishLink();
+                        
                         obj->check_error();
 
-                        CSBIGImg *pImg= 0;
+
                         pImg = new CSBIGImg;
                         pImg->AllocateImageBuffer(obj->height, obj->width);
 
@@ -1331,53 +1336,73 @@ namespace sadira{
 
                         while(continue_expo){
 
-                            MINFO << "Accumulating photons. Exptime="<<obj->exptime << " Expo  "<< (expo+1) << "/" << obj->nexpo<<endl;
+			  MINFO << "SBIG "<< obj->camera_type_string<<" Accumulating photons. Exptime="<<obj->exptime << " Expo  "<< (expo+1) << "/" << obj->nexpo<<endl;
 
                             //void CSBIGCam::GetGrabState(GRAB_STATE &grabState, double &percentComplete)
 
-                            obj->pcam->GrabImage(pImg,sbdf);
-                            obj->check_error();
+			  //obj->pcam->GrabImage(pImg,sbdf);
 
+			  PAR_ERROR err;
+	
+			  pImg->SetImageCanClose(FALSE);
+			  
+			  /* do the Once per image setup */
+			  if ((err = obj->pcam->GrabSetup(pImg, sbdf)) == CE_NO_ERROR ){
+			    /* Grab the image */
+			    err = obj->pcam->GrabMain(pImg, sbdf);
+			    
+			  }else{
+			    MERROR << "SBIG ["<<obj->camera_type_string << "] GrabSetup error ! " << endl;
+			    obj->check_error();
+			  }
+			  
+			  obj->pcam->m_eGrabState = GS_IDLE;
+			  pImg->SetImageCanClose(TRUE);
+			  
+			  obj->check_error();
+			  
 
-                            //new_event.lock();
-
-                            obj->last_image.redim(pImg->GetWidth(), pImg->GetHeight());
-                            obj->last_image.rawcopy(pImg->GetImagePointer(),obj->last_image.dim);
-
-                            expo++;
-
-                            cam_event* came2=new cam_event();
-                            came2->title="new_image";
-                            came2->message="New image received";
-                            came2->obj=obj;
-                            came2->event=EVT_NEW_IMAGE;
-                            obj->event_queue.push(came2);
-                            obj->AW.async.data = obj;
-                            uv_async_send(&obj->AW.async);
-
-                            if(expo>=obj->nexpo) continue_expo=0;
-
-                            //system("ds9 grab.fits -frame refresh");
-
+			  //new_event.lock();
+			  
+			  obj->last_image.redim(pImg->GetWidth(), pImg->GetHeight());
+			  obj->last_image.rawcopy(pImg->GetImagePointer(),obj->last_image.dim);
+			  
+			  expo++;
+			  
+			  cam_event* came2=new cam_event();
+			  came2->title="new_image";
+			  came2->message="New image received";
+			  came2->obj=obj;
+			  came2->event=EVT_NEW_IMAGE;
+			  obj->event_queue.push(came2);
+			  obj->AW.async.data = obj;
+			  uv_async_send(&obj->AW.async);
+			  
+			  if(expo>=obj->nexpo) continue_expo=0;
+			  
+			  //system("ds9 grab.fits -frame refresh");
+			  
                         }
-
+			
                         continue_expo=0;
                         //    continue_expo_mut.unlock();
                         // MINFO << " Done exposures. Forcing closing of shutter." << endl;
-
-                        delete pImg;
+			
+                        delete pImg; pImg=NULL;
                         obj->close_shutter();
 
                         //obj->really_take_exposure();
                         came->title="success";
-                        came->message="All Exposures terminated";
+                        came->message="SBIG [" + obj->camera_type_string + "] All Exposures terminated";
 
 
                     }
                     catch(qk::exception& e){
                         came->title="error";
                         came->message=e.mess;
-                        MERROR << "Error in exposure thread :" << e.mess << endl;
+                        MERROR << "SBIG [" << obj->camera_type_string << "] Error grab image :" << e.mess << endl;
+			if(pImg!=NULL)
+			  delete pImg;
                     }
                     obj->event_queue.push(came);
                     obj->AW.async.data = obj;
@@ -1401,7 +1426,7 @@ namespace sadira{
                         obj->continue_expo=1;
 
                         obj->check_error();
-                        obj->pcam->GrabSetup();
+                        obj->pcam->GrabSetupFast();
                         while(obj->continue_expo){
 
                             //MINFO << "Accumulating photons. Exptime="<<exptime << " Expo  "<< (expo+1) << "/" << nexpo<<endl;
@@ -1531,7 +1556,7 @@ namespace sadira{
                         obj->AW.event_callback.Reset();
                         obj->AW.obj_persistent->Reset();
 
-                        MINFO << "Sent EXPO_COMPLETE " << cevent->message << endl;
+                        MINFO << "SBIG [" << obj->camera_type_string << "] EXPO_COMPLETE :  " << cevent->message << endl;
                         //obj->kill_thread();
 
                     }
@@ -1581,7 +1606,7 @@ namespace sadira{
                             v8::Handle<v8::Value> msgv(msg);
                             v8::Handle<v8::Value> argv[argc] = { msgv };
 
-                            MINFO << "NEW_IMAGE "  << endl;
+                            MINFO << "SBIG [" << obj->camera_type_string << "] sending NewImage event to JS"  << endl;
 
 
                             cb->Call(isolate->GetCurrentContext()->Global(), argc, argv );
@@ -1624,7 +1649,7 @@ namespace sadira{
                         v8::Handle<v8::Value> msgv(msg);
                         v8::Handle<v8::Value> argv[argc] = { msgv };
 
-                        MINFO << "EXPO_PROGRESS " << cevent->complete << endl;
+                        //MINFO << "EXPO_PROGRESS " << cevent->complete << endl;
                         cb->Call(isolate->GetCurrentContext()->Global(), argc, argv );
                     }
                 }));
@@ -1649,7 +1674,7 @@ namespace sadira{
                         v8::Handle<v8::Value> msgv(msg);
                         v8::Handle<v8::Value> argv[argc] = { msgv };
 
-                        MINFO << "GRAB_PROGRESS " << cevent->complete << endl;
+                        //MINFO << "GRAB_PROGRESS " << cevent->complete << endl;
                         //cout << "Emit Image event " << endl;
                         cb->Call(isolate->GetCurrentContext()->Global(), argc, argv );
                     }
@@ -1759,7 +1784,7 @@ namespace sadira{
             check_error();
         }
 
-        pcam->EstablishLink();
+	//        pcam->EstablishLink();
         pcam->GetFullFrame(fullWidth, fullHeight);
         check_error();
         MINFO << "FullFrame : " << fullWidth << ", " << fullHeight << endl;
@@ -1973,24 +1998,24 @@ namespace sadira{
 
     void sbig::initialize(int usb_id){
 
-        MINFO << "Shutting dowm camera ... ID " << usb_id << endl;
-
+      if(pcam!=NULL)
         shutdown();
-
-        MINFO << "Opening link to camera with USB ID = " << usb_id << endl;
-
-        SBIG_DEVICE_TYPE dev= (SBIG_DEVICE_TYPE) (DEV_USB+2+usb_id);
-        //pcam = new sbig_cam(this, DEV_USB1);
-
-        string caminfo="";
-        //double ccd_temp;
-        //unsigned short regulation_enabled;
-        //double setpoint_temp;
-        //double percent_power;
-
-        try{
+      
+      MINFO << "SBIG ["<<this<<"] USB ID " << usb_id << " Opening camera link"<< endl;
+      
+      SBIG_DEVICE_TYPE dev= (SBIG_DEVICE_TYPE) (DEV_USB+2+usb_id);
+      //pcam = new sbig_cam(this, DEV_USB1);
+      
+      string caminfo="";
+      //double ccd_temp;
+      //unsigned short regulation_enabled;
+      //double setpoint_temp;
+      //double percent_power;
+      
+      try{
             pcam = new sbig_cam(this, dev);
-            MINFO << "Connected to camera : [" << pcam->GetCameraTypeString() << "] cam info = ["<< caminfo<<"]"<<endl;
+
+	    pcam->EstablishLink();
 
             // pcam->QueryTemperatureStatus(regulation_enabled, ccd_temp,setpoint_temp, percent_power);
             // MINFO << "CCD Temperature regulation : " << (regulation_enabled? "ON" : "OFF")
@@ -1998,9 +2023,16 @@ namespace sadira{
             //            << " Cooling power : "<< percent_power << "%."<<endl;
 
             check_error();
+
+	    //pcam->GetFormattedCameraInfo(caminfo, 0);
+
+	    //check_error();
+	    camera_type_string = pcam->GetCameraTypeString();
+	    
+	    MINFO "SBIG ["<<this<<"] USB ID " << usb_id << " Connected to camera : [" << camera_type_string << "] cam info = ["<< caminfo<<"]"<<endl;
         }
         catch(qk::exception& e){
-            MERROR << "SBIG: initialize error : "<< e.mess << endl;
+	  MERROR << "SBIG ["<<this<<"] USB ID " << usb_id <<" initialize error : "<< e.mess << endl;
         }
 
         //MINFO << "Camera init done"<<endl;
@@ -2100,59 +2132,62 @@ namespace sadira{
 
     }
 
-    void sbig::really_take_exposure(){
-
-        if(!pcam) throw qk::exception("No PCAM !");
-
-        SBIG_DARK_FRAME sbdf=SBDF_LIGHT_ONLY;
-
-        pcam->EstablishLink();
-        check_error();
-
-        CSBIGImg *pImg= 0;
-        pImg = new CSBIGImg;
-        pImg->AllocateImageBuffer(height, width);
+    // void sbig::really_take_exposure(){
 
 
+    //   MERROR << "REALLY SHIT ??" << endl; 
+      
+    //     if(!pcam) throw qk::exception("No PCAM !");
 
-        int expo=0;
+    //     SBIG_DARK_FRAME sbdf=SBDF_LIGHT_ONLY;
 
-        //    continue_expo_mut.lock();
-        continue_expo=1;
+    //     pcam->EstablishLink();
+    //     check_error();
 
-        check_error();
-
-        while(continue_expo){
-
-            MINFO << "Accumulating photons. Exptime="<<exptime << " Expo  "<< (expo+1) << "/" << nexpo<<endl;
-
-            //void CSBIGCam::GetGrabState(GRAB_STATE &grabState, double &percentComplete)
-
-            pcam->GrabImage(pImg,sbdf);
-            check_error();
+    //     CSBIGImg *pImg= 0;
+    //     pImg = new CSBIGImg;
+    //     pImg->AllocateImageBuffer(height, width);
 
 
-            //new_event.lock();
 
-            last_image.redim(pImg->GetWidth(), pImg->GetHeight());
-            last_image.rawcopy(pImg->GetImagePointer(),last_image.dim);
+    //     int expo=0;
 
-            expo++;
+    //     //    continue_expo_mut.lock();
+    //     continue_expo=1;
 
-            if(!infinite_loop && expo>=nexpo) continue_expo=0;
+    //     check_error();
 
-            //system("ds9 grab.fits -frame refresh");
+    //     while(continue_expo){
 
-        }
+    //         MINFO << "Accumulating photons. Exptime="<<exptime << " Expo  "<< (expo+1) << "/" << nexpo<<endl;
 
-        continue_expo=0;
-        //    continue_expo_mut.unlock();
-        // MINFO << " Done exposures. Forcing closing of shutter." << endl;
+    //         //void CSBIGCam::GetGrabState(GRAB_STATE &grabState, double &percentComplete)
 
-        delete pImg;
-        close_shutter();
+    //         pcam->GrabImage(pImg,sbdf);
+    //         check_error();
+
+
+    //         //new_event.lock();
+
+    //         last_image.redim(pImg->GetWidth(), pImg->GetHeight());
+    //         last_image.rawcopy(pImg->GetImagePointer(),last_image.dim);
+
+    //         expo++;
+
+    //         if(!infinite_loop && expo>=nexpo) continue_expo=0;
+
+    //         //system("ds9 grab.fits -frame refresh");
+
+    //     }
+
+    //     continue_expo=0;
+    //     //    continue_expo_mut.unlock();
+    //     // MINFO << " Done exposures. Forcing closing of shutter." << endl;
+
+    //     delete pImg;
+    //     close_shutter();
         
-    }
+    // }
 
 
     void sbig::close_shutter(){

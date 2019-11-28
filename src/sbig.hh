@@ -32,7 +32,7 @@ namespace sadira{
   //using namespace std;
   using namespace qk;
   //  using namespace v8;
-  using namespace Nan;
+  //using namespace Nan;
 
   class sbig;
 
@@ -51,7 +51,7 @@ namespace sadira{
     virtual void expo_complete(double pc);
 
     PAR_ERROR GrabMainFast(qk::mat<unsigned short>& data);
-    PAR_ERROR GrabSetup();
+    PAR_ERROR GrabSetupFast();
     void check_error();
     sbig* sb;
 
@@ -216,7 +216,7 @@ namespace sadira{
     void initialize(int usb_id);
     void start_exposure();
     void stop_exposure();
-    void really_take_exposure();
+    //    void really_take_exposure();
     void shutdown();
     
     bool infinite_loop;

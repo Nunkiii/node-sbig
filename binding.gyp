@@ -17,11 +17,11 @@
 
             ["OS=='linux'", {
                 "libraries": ["-fPIC",
-                              "-lcfitsio",
                               "-lpng",
                               "-ljpeg",
-                              "-lsbigudrv",
-                              "/usr/lib/x86_64-linux-gnu/libusb-1.0.so"
+			      "/usr/lib/libsbigudrv.a",
+			      "-lcfitsio",
+			      "-lusb"
                              ],
                 "cflags_cc": ["-fexceptions",
                               "-I /usr/include/libusb-1.0",
