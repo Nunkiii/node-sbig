@@ -19,9 +19,9 @@
                 "libraries": ["-fPIC",
                               "-lpng",
                               "-ljpeg",
-			      "/usr/lib/libsbigudrv.a",
-			      "-lcfitsio",
-			      "-lusb"
+			      "-lsbigudrv",
+                              "/usr/lib/x86_64-linux-gnu/libusb-1.0.so"			      
+			      "-lcfitsio"
                              ],
                 "cflags_cc": ["-fexceptions",
                               "-I /usr/include/libusb-1.0",
