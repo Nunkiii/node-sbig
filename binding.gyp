@@ -3,7 +3,7 @@
 
         "target_name": "sbig",
 
-        "sources": [            
+        "sources": [
 	    "src/qk/exception.cpp",
             "src/qk/pngwriter.cpp",
             "src/qk/jpeg_writer.cpp",
@@ -19,8 +19,8 @@
                 "libraries": ["-fPIC",
                               "-lpng",
                               "-ljpeg",
-			      "-lsbigudrv",
-                              "/usr/lib/x86_64-linux-gnu/libusb-1.0.so"			      
+			      "-lsbig",
+                              "/usr/lib/x86_64-linux-gnu/libusb-1.0.so",
 			      "-lcfitsio"
                              ],
                 "cflags_cc": ["-fexceptions",
