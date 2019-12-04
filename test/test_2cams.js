@@ -24,19 +24,20 @@ sbig.usb_info(function(data){
 
     function take_image(cam, name){
 
-	cam.set_temp(true, -10.0); //Setting temperature regulation 
+        cam1.filter_wheel(4);      //1=U  2=B  3=V  4=R  5=I
+	cam.set_temp(true, -19.0); //Setting temperature regulation 
 	
 	console.log("Cam cooling info = " + JSON.stringify(cam.get_temp()));
 
 	var cam_options = {
 
-	    exptime : 0.3,
+	    exptime : 1,
 	    nexpo : 1,
-	    //subframe : [0, 0, 100, 100],
+	    //subframe : [800, 800, 400, 200],
 	    fast_readout : false,
 	    dual_channel : false,
 	    light_frame: true,
-	    readout_mode: "2x2"
+	    readout_mode: "1x1"
 	};
 	
 	cam.start_exposure(cam_options, function (expo_message){
@@ -69,9 +70,8 @@ sbig.usb_info(function(data){
 	    if(init_message.type=="success") {
 		
 		console.log(init_message.content + " --> starting exposure.");
-		take_image(cam1,"cam1");
+		take_image(cam1,"saturn_1"); // nameeeeeee
 
-		cam1.filter_wheel(1);
 	    }
 	    if(init_message.type=="info") {
 		console.log("Cam1 Info : " + init_message.content );
