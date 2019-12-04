@@ -309,9 +309,11 @@ PAR_ERROR CSBIGCam::GetFullFrame(int &nWidth, int &nHeight)
 	rm = m_uReadoutMode & 0xFF;
 	gcip.request = (m_eActiveCCD == CCD_IMAGING ? CCD_INFO_IMAGING : CCD_INFO_TRACKING);
 
+	//	cout << "CC_GET_CCD_INFO" << endl;
 	if (SBIGUnivDrvCommand(CC_GET_CCD_INFO, &gcip, &gcir) != CE_NO_ERROR)
 	{
-		return m_eLastError;
+	  //MINFO << "CC_GET_CCD_INFO ERROR !" << endl;
+	  return m_eLastError;
 	}
 
 	if (rm >= gcir.readoutModes)
@@ -418,8 +420,16 @@ string CSBIGCam::GetCameraTypeString(void)
  the driver has been opened.
  
 */
+
+#include <mutex>
+
+std::mutex SBIGMutex;
+
 PAR_ERROR CSBIGCam::SBIGUnivDrvCommand(short command, void *Params, void *Results)
 {
+
+  SBIGMutex.lock();
+  
 	SetDriverHandleParams sdhp;
 	
 	// make sure we have a valid handle to the driver
@@ -440,6 +450,7 @@ PAR_ERROR CSBIGCam::SBIGUnivDrvCommand(short command, void *Params, void *Result
 		}
 	}
 
+	SBIGMutex.unlock();
 	return m_eLastError;
 }
 
@@ -458,6 +469,9 @@ PAR_ERROR CSBIGCam::SBIGUnivDrvCommand(short command, void *Params, void *Result
 */
 PAR_ERROR CSBIGCam::OpenDriver()
 {
+
+  SBIGMutex.lock();
+    
 	short res;
 	GetDriverHandleResults gdhr;
 	SetDriverHandleParams sdhp;
@@ -472,6 +486,12 @@ PAR_ERROR CSBIGCam::OpenDriver()
 		   the class so get the driver to allocate a new
 		   handle and then record it
 		*/
+
+	  cout << " !!!!!!!!!!!!!!!! REOPENING DRIVER !!!!!!!!!!!!!!!!!!!!!!!! " << endl;
+	  cout << " !!!!!!!!!!!!!!!! REOPENING DRIVER !!!!!!!!!!!!!!!!!!!!!!!! " << endl;
+	  cout << " !!!!!!!!!!!!!!!! REOPENING DRIVER !!!!!!!!!!!!!!!!!!!!!!!! " << endl;
+	  cout << " !!!!!!!!!!!!!!!! REOPENING DRIVER !!!!!!!!!!!!!!!!!!!!!!!! " << endl;
+	  
 		sdhp.handle = INVALID_HANDLE_VALUE;
 		res = ::SBIGUnivDrvCommand(CC_SET_DRIVER_HANDLE, &sdhp, NULL);
 		if ( res == CE_NO_ERROR ) {
@@ -494,6 +514,9 @@ PAR_ERROR CSBIGCam::OpenDriver()
 		if ( res == CE_NO_ERROR )
 			m_nDrvHandle = gdhr.handle;
 	}
+
+	SBIGMutex.unlock();
+	
 	return m_eLastError = (PAR_ERROR)res;
 }
 
@@ -799,6 +822,7 @@ PAR_ERROR CSBIGCam::GrabSetup(CSBIGImg *pImg, SBIG_DARK_FRAME dark)
 	s = gcir.name;
 	pImg->SetCameraModel(s);
 	pImg->SetBinning(m_sGrabInfo.hBin, m_sGrabInfo.vBin);
+	cout << "GrabSetup: Setting subframe " << m_sGrabInfo.left <<  m_sGrabInfo.top << endl;
 	pImg->SetSubFrame(m_sGrabInfo.left, m_sGrabInfo.top);
 	return CE_NO_ERROR;
 }
@@ -855,14 +879,32 @@ PAR_ERROR CSBIGCam::GrabMain(CSBIGImg *pImg, SBIG_DARK_FRAME dark)
 	pImg->SetImageStartTime(curTime);
 
 	// wait for exposure to complete
+	double gpct;
+	//cout << "EXPO BEGIN" << endl;
+	expo_complete(0.0);
 	do 
 	{
-		m_dGrabPercent = (double)(time(NULL) - curTime)/m_dExposureTime;
+	  gpct= (double)(time(NULL) - curTime)/m_dExposureTime;
+	  //cout << "EXPO% " << gpct*100 << " exptime  " << m_dExposureTime << endl;
+
+	  if(gpct != m_dGrabPercent){
+	    m_dGrabPercent =gpct;
+	    
+	    expo_complete(m_dGrabPercent);
+	  }
+
+	  usleep(200000);
 	} 
 	while ((err = IsExposureComplete(expComp)) == CE_NO_ERROR && !expComp );
+
+	expo_complete(1.0);
+	//cout << "EXPO DONE" << endl;
 	
 	EndExposure();
 
+
+	m_dGrabPercent = 0.0;
+	
 	if (err != CE_NO_ERROR)
 	{
 		return err;
@@ -881,22 +923,40 @@ PAR_ERROR CSBIGCam::GrabMain(CSBIGImg *pImg, SBIG_DARK_FRAME dark)
 	srp.width  = m_sGrabInfo.width;
 	srp.readoutMode = m_uReadoutMode;
 	m_eGrabState = (dark == SBDF_LIGHT_ONLY ? GS_DIGITIZING_LIGHT : GS_DIGITIZING_DARK);
-	
+
+	int nnotif=5;
 	if ( (err = StartReadout(srp)) == CE_NO_ERROR ) 
 	{
 		rlp.ccd = m_eActiveCCD;
 		rlp.pixelStart = m_sGrabInfo.left;
 		rlp.pixelLength = m_sGrabInfo.width;
 		rlp.readoutMode = m_uReadoutMode;
-	
+
+
+		//cout << "Readout: line params : pixelStart = " << rlp.pixelStart << ", pixelLength =  " << rlp.pixelLength << " Mode " << m_uReadoutMode << endl;
+		
+		grab_complete(0.0);
+
+		cout << "Top : " << m_sGrabInfo.top << endl;
+		
+		if(m_sGrabInfo.top>0)
+		  DumpLines(m_sGrabInfo.top);
+		
 		for (i = 0; i < m_sGrabInfo.height && err == CE_NO_ERROR; i++)
 		{
 			m_dGrabPercent = (double)(i+1) / m_sGrabInfo.height;
 			err = ReadoutLine(rlp, FALSE, pImg->GetImagePointer() + (long)i * m_sGrabInfo.width);
+			//cout << "Grab" << m_dGrabPercent << endl;
+			
+			if(i%(int)(m_sGrabInfo.height*1.0/nnotif)==0)
+			  grab_complete(m_dGrabPercent);
 		}
+		grab_complete(1.0);
 	}
 	
 	EndReadout();
+
+	//	cout << "Readout DONE !" << endl;
 	
 	if (err != CE_NO_ERROR)
 	{
@@ -925,7 +985,9 @@ PAR_ERROR CSBIGCam::GrabMain(CSBIGImg *pImg, SBIG_DARK_FRAME dark)
 		// wait for exposure to complete
 		do
 		{
-			m_dGrabPercent = (double)(time(NULL) - curTime)/m_dExposureTime;
+		  m_dGrabPercent = (double)(time(NULL) - curTime)/m_dExposureTime;
+		  //cout << "EXPO" << m_dGrabPercent << endl;
+		  expo_complete(m_dGrabPercent);
 		}
 		while ((err = IsExposureComplete(expComp)) == CE_NO_ERROR && !expComp );
 
@@ -943,17 +1005,28 @@ PAR_ERROR CSBIGCam::GrabMain(CSBIGImg *pImg, SBIG_DARK_FRAME dark)
 		srp.height = m_sGrabInfo.height;
 		srp.width = m_sGrabInfo.width;
 		srp.readoutMode = m_uReadoutMode;
+
 		m_eGrabState = GS_DIGITIZING_LIGHT;
+
 		if ( (err = StartReadout(srp)) == CE_NO_ERROR ) {
-			rlp.ccd = m_eActiveCCD;
-			rlp.pixelStart = m_sGrabInfo.left;
-			rlp.pixelLength = m_sGrabInfo.width;
-			rlp.readoutMode = m_uReadoutMode;
-			for (i=0; i<m_sGrabInfo.height && err==CE_NO_ERROR; i++ ) {
-				m_dGrabPercent = (double)(i+1)/m_sGrabInfo.height;
-				err = ReadoutLine(rlp, TRUE, pImg->GetImagePointer() + (long)i * m_sGrabInfo.width);
-			}
+		  rlp.ccd = m_eActiveCCD;
+		  rlp.pixelStart = m_sGrabInfo.left;
+		  rlp.pixelLength = m_sGrabInfo.width;
+		  rlp.readoutMode = m_uReadoutMode;
+
+		  if(m_sGrabInfo.top>0)
+		    DumpLines(m_sGrabInfo.top);
+		  grab_complete(0.0);
+		  for (i=0; i<m_sGrabInfo.height && err==CE_NO_ERROR; i++ ) {
+		    m_dGrabPercent = (double)(i+1)/m_sGrabInfo.height;
+		    //cout << "Grab" << m_dGrabPercent << endl;
+		    if(i%(int)(m_sGrabInfo.height*1.0/nnotif)==0)
+		      grab_complete(m_dGrabPercent);
+		    err = ReadoutLine(rlp, TRUE, pImg->GetImagePointer() + (long)i * m_sGrabInfo.width);
+		  }
+		  grab_complete(1.0);
 		}
+		
 		EndReadout();
 		if (err != CE_NO_ERROR)
 		{
@@ -988,7 +1061,9 @@ PAR_ERROR CSBIGCam::GrabMain(CSBIGImg *pImg, SBIG_DARK_FRAME dark)
 				pLT->tm_hour, pLT->tm_min, pLT->tm_sec);
 		pImg->SetImageNote(cs);
 	}
-	
+
+	//	cout << "DONE GRAB!" << endl;
+		
 	return CE_NO_ERROR;	
 }
 

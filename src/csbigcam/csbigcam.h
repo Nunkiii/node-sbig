@@ -58,9 +58,9 @@ GRAB_STATE;
 
 class CSBIGCam
 {
-private:
-	PAR_ERROR 				m_eLastError;
-	PAR_COMMAND 			m_eLastCommand;
+  //private:
+	public:
+  PAR_COMMAND 			m_eLastCommand;
 	short 						m_nDrvHandle;
 	CAMERA_TYPE 			m_eCameraType;
 	unsigned short 		m_nFirmwareVersion;
@@ -72,12 +72,12 @@ private:
 										m_nSubFrameTop,
 										m_nSubFrameWidth,
 										m_nSubFrameHeight;
-	GRAB_STATE 				m_eGrabState;
-	double 						m_dGrabPercent;
+
 	CFW_MODEL_SELECT	m_eCFWModel;
 	CFW_ERROR 				m_eCFWError;
 	bool							m_FastReadout;
 	bool							m_DualChannelMode;
+
 
 	struct GRAB_INFO
 	{
@@ -87,13 +87,21 @@ private:
 	}
 	m_sGrabInfo;
 
-public:
+
+	PAR_ERROR 				m_eLastError;
+
+	GRAB_STATE 				m_eGrabState;
+	double 						m_dGrabPercent;
+
 	// Constructors/Destructors
 	CSBIGCam();
 	CSBIGCam(OpenDeviceParams odp);
 	CSBIGCam(SBIG_DEVICE_TYPE dev);
 	~CSBIGCam();
 
+  virtual void grab_complete(double pc){};
+  virtual void expo_complete(double pc){};
+	
 	void Init();
 
 	// Error Reporting Routines
