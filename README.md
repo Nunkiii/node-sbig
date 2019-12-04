@@ -1,27 +1,48 @@
-A Node.js frontend to the SBIG astronomical cameras.
+node-sbig: a node.js frontend to the SBIG astronomical cameras.
 ============
 
 This C++/javascript library is in early developement phase. 
 
-### To build:
+## Install node.js
+Skip if you already installed node.js on your machine.
+
+From:
+http://yoember.com/nodejs/the-best-way-to-install-node-js/
+
+On Linux (other OS are treated in the previous link):
+
+
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.1/install.sh | bash
+
+    nvm ls-remote
+    nvm list
+    nvm install lts/dubnium
+    nvm use lts/dubnium
+    nvm alias default lts/dubnium
+    node -v
+    npm install -g npm
+    npm -v
+    source ~/.nvm/nvm.sh
+
+
+## Install dependecies needed by `node-fits` and `node-sbig`. In debian-based OS:
 
 The `node-sbig` module compiles on GNU/Linux with g++. `node-gyp` is used as building tool. Other platforms have not been tested yet.
 
 You will need to install the development versions of `libusb-1.0-0`, `libpng` and `libcfitsio` (called respectively `libusb-1.0-0-dev`, `libpng-dev` and `libcfitsio-dev` on debian systems).
 
 The `libsbigudrv.so` SBIG proprietary library driver and the camera firmware must be correctly installed on your system and the camera clearly identified (`lsusb` to check). We suggest to use the `libsbig` package provided by `indi-sbig` in the version provided by the repositories. 
-
-On Debian-like systems to install node (for example):
-
-    sudo apt install node node-gyp 
-    
-And to install dependecies:
     
     sudo apt install g++ libpng-dev libcfitsio-dev libusb-1.0-0-dev libsbig
    
 In the node-sbig directory, build the module. This will also install our [node-fits](https://github.com/Nunkiii/node-fits) package from github:
 
-    npm -f install
+## Install this package
+
+    # Cloning and installing dependencies
+    git clone https://github.com/Nunkiii/node-sbig.git
+    cd node-sbig/
+    npm install
     
 ### Testing
 
@@ -30,18 +51,19 @@ The test file, in the node-sbig/test directory
     $node test_2cams.js
 
 ```
-var fits = require('../node_modules/node-fits/build/Release/fits');
-var sbig = require('../build/Release/sbig');
 
-console.log("Loading driver...");
-
-var cam1= new sbig.cam();
-var cam2= new sbig.cam();
-
-console.log("Inspecting USB for cameras...");
-
-sbig.usb_info(function(data){
-
+    var fits = require('../node_modules/node-fits/build/Release/fits');
+    var sbig = require('../build/Release/sbig');
+    
+    console.log("Loading driver...");
+    
+    var cam1= new sbig.cam();
+    var cam2= new sbig.cam();
+    
+    console.log("Inspecting USB for cameras...");
+    
+    sbig.usb_info(function(data){
+    
     
     console.log("USB Info :" + JSON.stringify(data,null,4));
     
@@ -134,26 +156,7 @@ sbig.usb_info(function(data){
 	});
       
     
-});
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    });
 
 
 ```
